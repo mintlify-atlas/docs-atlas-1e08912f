@@ -1,0 +1,102 @@
+{
+  "projectType": "api-service",
+  "projectName": "Factus API",
+  "projectDescription": "REST API for Colombian e-invoicing integration with Factus platform and DIAN validation",
+  "theme": "mint",
+  "primaryColor": "#3d38bd",
+  "lightColor": "#9ca4f4",
+  "darkColor": "#d8d7e9",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/authentication",
+              "guides/creating-invoices",
+              "guides/downloading-documents",
+              "guides/error-handling"
+            ]
+          },
+          {
+            "group": "Architecture",
+            "pages": [
+              "architecture/overview",
+              "architecture/clean-architecture",
+              "architecture/configuration"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Authentication",
+            "pages": [
+              "api-reference/auth/local-login",
+              "api-reference/auth/factus-login",
+              "api-reference/auth/refresh-token"
+            ]
+          },
+          {
+            "group": "Invoices",
+            "pages": [
+              "api-reference/invoices/create-invoice",
+              "api-reference/invoices/get-invoice",
+              "api-reference/invoices/download-pdf",
+              "api-reference/invoices/download-xml",
+              "api-reference/invoices/get-events",
+              "api-reference/invoices/send-email",
+              "api-reference/invoices/delete-invoice"
+            ]
+          },
+          {
+            "group": "Lookups",
+            "pages": [
+              "api-reference/lookups/municipalities",
+              "api-reference/lookups/taxes",
+              "api-reference/lookups/units",
+              "api-reference/lookups/numbering-ranges"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "JWT-based local authentication",
+    "Factus OAuth2 token lifecycle management",
+    "Invoice creation and DIAN validation",
+    "PDF and XML downloads (base64-encoded)",
+    "Email delivery of validated invoices",
+    "Invoice event history (RADIAN)",
+    "Reference data lookups (municipalities, taxes, units)",
+    "Clean architecture with ports-and-adapters pattern"
+  ],
+  "publicApiSurface": [
+    "POST /api/v1/auth/login",
+    "POST /api/v1/auth/factus/login",
+    "POST /api/v1/auth/factus/refresh",
+    "POST /api/v1/invoices/",
+    "GET /api/v1/invoices/{number}",
+    "GET /api/v1/invoices/{number}/pdf",
+    "GET /api/v1/invoices/{number}/xml",
+    "GET /api/v1/invoices/{number}/events",
+    "POST /api/v1/invoices/{number}/send-email",
+    "DELETE /api/v1/invoices/reference/{code}",
+    "GET /api/v1/lookups/municipalities",
+    "GET /api/v1/lookups/taxes",
+    "GET /api/v1/lookups/units",
+    "GET /api/v1/lookups/numbering-ranges"
+  ]
+}
