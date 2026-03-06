@@ -1,0 +1,130 @@
+---
+title: "Get Invoice Events"
+api: "GET /api/v1/invoices/{number}/events"
+description: "Retrieve all events and status changes for a specific invoice"
+---
+
+## Headers
+
+<ParamField header="Authorization" type="string" required>
+  Bearer token for authentication: `Bearer <local_jwt>`
+</ParamField>
+
+<ParamField header="X-Factus-Token" type="string" required>
+  Factus access token obtained from authentication
+</ParamField>
+
+## Path Parameters
+
+<ParamField path="number" type="string" required>
+  The invoice number to retrieve events for
+</ParamField>
+
+## Response
+
+<ResponseField name="message" type="string">
+  Success message
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Invoice events response
+  <Expandable title="Data properties">
+    <ResponseField name="status" type="string">
+      Response status
+    </ResponseField>
+    
+    <ResponseField name="message" type="string">
+      Status message
+    </ResponseField>
+    
+    <ResponseField name="data" type="array">
+      List of invoice events
+      <Expandable title="Event properties">
+        <ResponseField name="number" type="string">
+          Event number
+        </ResponseField>
+        
+        <ResponseField name="cude" type="string">
+          CUDE (Unique Event Document Code)
+        </ResponseField>
+        
+        <ResponseField name="event_code" type="string">
+          Event type code
+        </ResponseField>
+        
+        <ResponseField name="event_name" type="string">
+          Human-readable event name
+        </ResponseField>
+        
+        <ResponseField name="effective_date" type="string">
+          Date when the event occurred (YYYY-MM-DD)
+        </ResponseField>
+        
+        <ResponseField name="effective_time" type="string">
+          Time when the event occurred
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+curl -X GET https://api.yourapp.com/api/v1/invoices/FACT-12345/events \
+  -H "Authorization: Bearer <local_jwt>" \
+  -H "X-Factus-Token: <factus_access_token>"
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200
+{
+  "message": "Eventos de factura obtenidos exitosamente",
+  "data": {
+    "status": "success",
+    "message": "Events retrieved successfully",
+    "data": [
+      {
+        "number": "EV-001",
+        "cude": "xyz789abc123def456ghi789jkl012mno345pqr678stu901vwx234yz",
+        "event_code": "030",
+        "event_name": "Acuse de recibo",
+        "effective_date": "2024-01-15",
+        "effective_time": "10:30:00"
+      },
+      {
+        "number": "EV-002",
+        "cude": "mno345pqr678stu901vwx234yzabc123def456ghi789jkl012xyz789",
+        "event_code": "031",
+        "event_name": "Recibo del bien o prestación del servicio",
+        "effective_date": "2024-01-16",
+        "effective_time": "14:15:00"
+      },
+      {
+        "number": "EV-003",
+        "cude": "def456ghi789jkl012xyz789mno345pqr678stu901vwx234yzabc123",
+        "event_code": "032",
+        "event_name": "Aceptación expresa",
+        "effective_date": "2024-01-17",
+        "effective_time": "09:45:00"
+      }
+    ]
+  }
+}
+```
+
+```json 400
+{
+  "detail": "Error al obtener eventos de la factura: Invoice not found"
+}
+```
+</ResponseExample>
+
+## Common Event Codes
+
+- **030**: Acuse de recibo (Acknowledgment of receipt)
+- **031**: Recibo del bien o prestación del servicio (Receipt of goods or services)
+- **032**: Aceptación expresa (Express acceptance)
+- **033**: Aceptación tácita (Tacit acceptance)
+- **034**: Reclamo de la factura electrónica de venta (Invoice claim)
+- **035**: Rechazo de la factura electrónica de venta (Invoice rejection)

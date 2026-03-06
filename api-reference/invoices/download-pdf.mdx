@@ -1,0 +1,84 @@
+---
+title: "Download Invoice PDF"
+api: "GET /api/v1/invoices/{number}/pdf"
+description: "Download the PDF representation of an invoice"
+---
+
+## Headers
+
+<ParamField header="Authorization" type="string" required>
+  Bearer token for authentication: `Bearer <local_jwt>`
+</ParamField>
+
+<ParamField header="X-Factus-Token" type="string" required>
+  Factus access token obtained from authentication
+</ParamField>
+
+## Path Parameters
+
+<ParamField path="number" type="string" required>
+  The invoice number to download as PDF
+</ParamField>
+
+## Response
+
+<ResponseField name="message" type="string">
+  Success message
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  PDF download response
+  <Expandable title="Data properties">
+    <ResponseField name="file_name" type="string">
+      Name of the PDF file
+    </ResponseField>
+    
+    <ResponseField name="file_content" type="string">
+      Base64-encoded PDF file content
+    </ResponseField>
+    
+    <ResponseField name="extension" type="string">
+      File extension ("pdf")
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+curl -X GET https://api.yourapp.com/api/v1/invoices/FACT-12345/pdf \
+  -H "Authorization: Bearer <local_jwt>" \
+  -H "X-Factus-Token: <factus_access_token>"
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200
+{
+  "message": "PDF obtenido exitosamente",
+  "data": {
+    "file_name": "FACT-12345.pdf",
+    "file_content": "JVBERi0xLjQKJeLjz9MKMyAwIG9iago8PC9UeXBlIC9QYWdlCi9QYXJlbnQgMSAwIFIKL01lZGlhQm94IFswIDAgNjEyIDc5Ml0KL0NvbnRlbnRzIDQgMCBSCi9SZXNvdXJjZXMgPDwKL1Byb2NTZXQgWy9QREYgL1RleHQgXQovRm9udCA8PAovRjEgNiAwIFIKPj4KPj4KPj4KZW5kb2JqCg==",
+    "extension": "pdf"
+  }
+}
+```
+
+```json 400
+{
+  "detail": "Error al descargar el PDF: Invoice not found"
+}
+```
+</ResponseExample>
+
+## Usage Notes
+
+- The `file_content` field contains the PDF file encoded in Base64 format
+- To use the file, decode the Base64 string and save it as a `.pdf` file
+- Example decoding in Python:
+  ```python
+  import base64
+  
+  pdf_content = base64.b64decode(response["data"]["file_content"])
+  with open("invoice.pdf", "wb") as f:
+      f.write(pdf_content)
+  ```

@@ -1,0 +1,85 @@
+---
+title: "Download Invoice XML"
+api: "GET /api/v1/invoices/{number}/xml"
+description: "Download the XML representation of an invoice for electronic invoicing compliance"
+---
+
+## Headers
+
+<ParamField header="Authorization" type="string" required>
+  Bearer token for authentication: `Bearer <local_jwt>`
+</ParamField>
+
+<ParamField header="X-Factus-Token" type="string" required>
+  Factus access token obtained from authentication
+</ParamField>
+
+## Path Parameters
+
+<ParamField path="number" type="string" required>
+  The invoice number to download as XML
+</ParamField>
+
+## Response
+
+<ResponseField name="message" type="string">
+  Success message
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  XML download response
+  <Expandable title="Data properties">
+    <ResponseField name="file_name" type="string">
+      Name of the XML file
+    </ResponseField>
+    
+    <ResponseField name="file_content" type="string">
+      Base64-encoded XML file content
+    </ResponseField>
+    
+    <ResponseField name="extension" type="string">
+      File extension ("xml")
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+curl -X GET https://api.yourapp.com/api/v1/invoices/FACT-12345/xml \
+  -H "Authorization: Bearer <local_jwt>" \
+  -H "X-Factus-Token: <factus_access_token>"
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200
+{
+  "message": "XML obtenido exitosamente",
+  "data": {
+    "file_name": "FACT-12345.xml",
+    "file_content": "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPEludm9pY2UgeG1sbnM9InVybjpvYXNpczpuYW1lczpzcGVjaWZpY2F0aW9uOnVibDpzY2hlbWE6eHNkOkludm9pY2UtMiIgeG1sbnM6Y2FjPSJ1cm46b2FzaXM6bmFtZXM6c3BlY2lmaWNhdGlvbjp1Ymw6c2NoZW1hOnhzZDpDb21tb25BZ2dyZWdhdGVDb21wb25lbnRzLTIiIHhtbG5zOmNiYz0idXJuOm9hc2lzOm5hbWVzOnNwZWNpZmljYXRpb246dWJsOnNjaGVtYTp4c2Q6Q29tbW9uQmFzaWNDb21wb25lbnRzLTIiPg==",
+    "extension": "xml"
+  }
+}
+```
+
+```json 400
+{
+  "detail": "Error al descargar el XML: Invoice not found"
+}
+```
+</ResponseExample>
+
+## Usage Notes
+
+- The `file_content` field contains the XML file encoded in Base64 format
+- The XML follows the UBL 2.1 standard for electronic invoicing in Colombia
+- To use the file, decode the Base64 string and save it as a `.xml` file
+- Example decoding in Python:
+  ```python
+  import base64
+  
+  xml_content = base64.b64decode(response["data"]["file_content"])
+  with open("invoice.xml", "wb") as f:
+      f.write(xml_content)
+  ```

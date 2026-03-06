@@ -1,0 +1,400 @@
+---
+title: 'Clean Architecture'
+description: 'Understanding the ports and adapters pattern in Factus API'
+icon: 'diagram-project'
+---
+
+## Introduction to Clean Architecture
+
+Factus API implements **clean architecture** (also known as **hexagonal architecture** or **ports and adapters pattern**). This architectural style ensures that business logic is independent of external frameworks, databases, and APIs.
+
+<Frame>
+  <img src="/images/clean-architecture-diagram.svg" alt="Clean Architecture Layers" />
+</Frame>
+
+## Core Principles
+
+<CardGroup cols={2}>
+  <Card title="Dependency Rule" icon="arrow-right">
+    Dependencies point inward. Domain layer never depends on infrastructure.
+  </Card>
+  <Card title="Domain Isolation" icon="shield">
+    Business logic has zero framework dependencies - pure Python only.
+  </Card>
+  <Card title="Interface Segregation" icon="plug">
+    Components communicate through abstract interfaces (ports).
+  </Card>
+  <Card title="Testability" icon="flask">
+    Easy to test business logic without external dependencies.
+  </Card>
+</CardGroup>
+
+## The Layers
+
+### Domain Layer (Inner Circle)
+
+The **domain layer** contains business entities and defines contracts (interfaces) that outer layers must implement. It has **no dependencies** on external libraries.
+
+<CodeGroup>
+```python Domain Model
+# app/src/domain/models/auth_token.py
+from pydantic import BaseModel
+
+class AuthToken(BaseModel):
+    """Pure domain model - no framework dependencies"""
+    access_token: str
+    token_type: str
+    expires_in: int
+    refresh_token: str | None = None
+```
+
+```python Port (Interface)
+# app/src/domain/interfaces/auth_gateway.py
+from abc import ABC, abstractmethod
+from app.src.domain.models.auth_token import AuthToken
+
+class IAuthGateway(ABC):
+    """Port: defines the contract for authentication"""
+    
+    @abstractmethod
+    async def authenticate(self, email: str, password: str) -> AuthToken:
+        """Authenticates with the external API and returns an AuthToken."""
+        pass
+
+    @abstractmethod
+    async def refresh_token(self, refresh_token: str) -> AuthToken:
+        """Refreshes the access token using a refresh token."""
+        pass
+```
+</CodeGroup>
+
+<Note>
+**Key Insight**: The domain layer defines *what* operations are needed (`IAuthGateway`) but not *how* they're implemented. The implementation details live in the infrastructure layer.
+</Note>
+
+### Infrastructure Layer (Outer Circle)
+
+The **infrastructure layer** implements the interfaces (ports) defined by the domain layer. This is where we interact with external APIs, databases, and frameworks.
+
+```python Adapter (Implementation)
+# app/src/infrastructure/gateways/factus_auth_gateway.py
+import httpx
+from app.src.domain.interfaces.auth_gateway import IAuthGateway
+from app.src.domain.models.auth_token import AuthToken
+from app.src.core.config import settings
+
+class FactusAuthGateway(IAuthGateway):
+    """Adapter: implements the IAuthGateway port using httpx"""
+    
+    def __init__(self, base_url: str, client_id: str, client_secret: str):
+        self.base_url = base_url.rstrip("/")
+        self.client_id = client_id
+        self.client_secret = client_secret
+
+    async def authenticate(self, email: str, password: str) -> AuthToken:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{self.base_url}/oauth/token",
+                data={
+                    "grant_type": "password",
+                    "client_id": self.client_id,
+                    "client_secret": self.client_secret,
+                    "username": email,
+                    "password": password,
+                },
+                headers={"Accept": "application/json"}
+            )
+
+        if not response.is_success:
+            raise Exception(self._parse_error(response, "Error de autenticación con Factus"))
+
+        data = response.json()
+        return AuthToken(
+            access_token=data["access_token"],
+            token_type=data["token_type"],
+            expires_in=data["expires_in"],
+            refresh_token=data.get("refresh_token")
+        )
+
+    async def refresh_token(self, refresh_token: str) -> AuthToken:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{self.base_url}/oauth/token",
+                data={
+                    "grant_type": "refresh_token",
+                    "client_id": self.client_id,
+                    "client_secret": self.client_secret,
+                    "refresh_token": refresh_token,
+                },
+                headers={"Accept": "application/json"}
+            )
+
+        if not response.is_success:
+            raise Exception(self._parse_error(response, "Error al refrescar el token de Factus"))
+
+        data = response.json()
+        return AuthToken(
+            access_token=data["access_token"],
+            token_type=data["token_type"],
+            expires_in=data["expires_in"],
+            refresh_token=data.get("refresh_token")
+        )
+
+    def _parse_error(self, response: httpx.Response, default: str) -> str:
+        try:
+            error_data = response.json()
+            return (
+                error_data.get("message")
+                or error_data.get("error_description")
+                or error_data.get("error")
+                or default
+            )
+        except Exception:
+            return response.text or f"HTTP {response.status_code}"
+```
+
+## The Gateway Pattern
+
+Gateways are the primary pattern for integrating with external services. Each gateway:
+
+1. **Implements a domain interface** (e.g., `IAuthGateway`, `IInvoiceGateway`)
+2. **Encapsulates HTTP communication** using `httpx.AsyncClient`
+3. **Transforms external data** into domain models
+4. **Handles errors** and provides meaningful messages
+
+### Invoice Gateway Example
+
+```python Interface Definition
+# app/src/domain/interfaces/invoice_gateway.py
+from abc import ABC, abstractmethod
+from app.src.domain.models.invoice import Invoice, InvoiceResponse
+
+class IInvoiceGateway(ABC):
+    @abstractmethod
+    async def create_invoice(self, invoice: Invoice, token: str) -> InvoiceResponse:
+        """Sends an invoice to the external API (Factus) and returns the validation response."""
+        pass
+
+    @abstractmethod
+    async def download_pdf(self, number: str, token: str) -> DownloadResponse:
+        """Downloads the PDF of an invoice."""
+        pass
+
+    @abstractmethod
+    async def download_xml(self, number: str, token: str) -> DownloadResponse:
+        """Downloads the XML of an invoice."""
+        pass
+```
+
+<Tip>
+By defining interfaces in the domain layer, we can:
+- **Mock gateways** for testing
+- **Swap implementations** without changing business logic
+- **Support multiple providers** (e.g., different e-invoicing systems)
+</Tip>
+
+## Dependency Injection with FastAPI
+
+FastAPI's dependency injection system connects the layers together. We define **factory functions** that create gateway instances:
+
+```python Dependency Configuration
+# app/src/api/deps.py
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+from jose import JWTError, jwt
+from app.src.core.config import settings
+from app.src.domain.models.user import TokenData, User
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login")
+
+# Gateway factories
+def get_auth_gateway() -> FactusAuthGateway:
+    """Factory for creating auth gateway instances"""
+    return FactusAuthGateway(
+        base_url=settings.FACTUS_BASE_URL,
+        client_id=settings.FACTUS_CLIENT_ID,
+        client_secret=settings.FACTUS_CLIENT_SECRET
+    )
+
+def get_invoice_gateway() -> FactusInvoiceGateway:
+    """Factory for creating invoice gateway instances"""
+    return FactusInvoiceGateway(
+        base_url=settings.FACTUS_BASE_URL
+    )
+
+# Authentication dependency
+async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+        token_data = TokenData(username=username)
+    except JWTError:
+        raise credentials_exception
+    
+    # In a real implementation, this would query a database
+    user_dict = fake_users_db.get(token_data.username)
+    if user_dict is None:
+        raise credentials_exception
+    return User(**user_dict)
+```
+
+### Using Dependencies in Endpoints
+
+```python Route Handler
+# app/src/api/v1/endpoints/auth.py
+from fastapi import APIRouter, Depends, HTTPException
+from app.src.api.deps import get_auth_gateway
+from app.src.domain.interfaces.auth_gateway import IAuthGateway
+from app.src.api.v1.schemas.auth import LoginRequest, LoginResponse
+
+router = APIRouter()
+
+@router.post("/login", response_model=LoginResponse)
+async def login(
+    request: LoginRequest,
+    gateway: IAuthGateway = Depends(get_auth_gateway)
+):
+    """Authenticate with Factus and return an access token."""
+    try:
+        token = await gateway.authenticate(request.email, request.password)
+        return LoginResponse(
+            access_token=token.access_token,
+            token_type=token.token_type,
+            expires_in=token.expires_in
+        )
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=str(e))
+```
+
+<Note>
+Notice how the endpoint receives an `IAuthGateway` interface, not the concrete `FactusAuthGateway` class. This makes the code testable and flexible.
+</Note>
+
+## Benefits of This Architecture
+
+<AccordionGroup>
+  <Accordion title="1. Testability">
+    Mock gateways and test business logic in isolation:
+    
+    ```python
+    class MockAuthGateway(IAuthGateway):
+        async def authenticate(self, email: str, password: str) -> AuthToken:
+            return AuthToken(
+                access_token="mock_token",
+                token_type="Bearer",
+                expires_in=3600
+            )
+    
+    # Test without hitting the real Factus API
+    async def test_login():
+        mock_gateway = MockAuthGateway()
+        result = await login_handler(request, gateway=mock_gateway)
+        assert result.access_token == "mock_token"
+    ```
+  </Accordion>
+
+  <Accordion title="2. Flexibility">
+    Swap implementations without changing business logic:
+    
+    - Switch from Factus to another e-invoicing provider
+    - Add caching layer by wrapping gateways
+    - Support multiple providers simultaneously
+  </Accordion>
+
+  <Accordion title="3. Maintainability">
+    Clear separation of concerns:
+    
+    - Domain logic in `domain/`
+    - External integrations in `infrastructure/`
+    - HTTP handling in `api/`
+    - Each layer can evolve independently
+  </Accordion>
+
+  <Accordion title="4. Framework Independence">
+    Business logic doesn't depend on FastAPI:
+    
+    - Domain models are pure Python/Pydantic
+    - Can migrate to Django, Flask, or CLI without rewriting logic
+    - Domain layer is framework-agnostic
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<Steps>
+  <Step title="Define interfaces in domain layer">
+    Always create abstract base classes for external dependencies:
+    
+    ```python
+    class IPaymentGateway(ABC):
+        @abstractmethod
+        async def process_payment(self, amount: Decimal) -> PaymentResult:
+            pass
+    ```
+  </Step>
+
+  <Step title="Keep domain models pure">
+    Domain models should never import from `infrastructure/` or `api/`:
+    
+    ```python
+    # ✅ Good: Pure Pydantic model
+    class Invoice(BaseModel):
+        number: str
+        amount: Decimal
+    
+    # ❌ Bad: Importing from infrastructure
+    from app.src.infrastructure.db import Base
+    class Invoice(Base):
+        ...
+    ```
+  </Step>
+
+  <Step title="Implement gateways in infrastructure">
+    All external API communication belongs in `infrastructure/gateways/`:
+    
+    ```python
+    class FactusInvoiceGateway(IInvoiceGateway):
+        async def create_invoice(self, invoice: Invoice, token: str) -> InvoiceResponse:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(...)
+                return InvoiceResponse(**response.json())
+    ```
+  </Step>
+
+  <Step title="Use dependency injection">
+    Connect layers using FastAPI's `Depends()`:
+    
+    ```python
+    @router.post("/invoice")
+    async def create_invoice(
+        invoice: InvoiceCreate,
+        gateway: IInvoiceGateway = Depends(get_invoice_gateway)
+    ):
+        return await gateway.create_invoice(invoice)
+    ```
+  </Step>
+</Steps>
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="Architecture Overview" icon="building" href="/architecture/overview">
+    Learn about the overall project structure
+  </Card>
+  <Card title="Configuration" icon="gear" href="/architecture/configuration">
+    Understand settings and environment variables
+  </Card>
+  <Card title="Quickstart Guide" icon="code" href="/quickstart">
+    Set up your development environment
+  </Card>
+  <Card title="Authentication API" icon="book" href="/api-reference/auth/local-login">
+    Explore the complete API documentation
+  </Card>
+</CardGroup>

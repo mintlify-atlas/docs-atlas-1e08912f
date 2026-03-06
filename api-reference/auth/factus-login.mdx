@@ -1,0 +1,121 @@
+---
+title: 'Factus OAuth2 Login'
+description: 'Authenticate with Factus credentials to obtain OAuth2 tokens'
+---
+
+## Endpoint
+
+<RequestExample>
+```bash cURL
+curl -X POST https://api.example.com/api/v1/auth/factus/login \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -d '{
+    "email": "user@example.com",
+    "password": "your_password"
+  }'
+```
+</RequestExample>
+
+**POST** `/api/v1/auth/factus/login`
+
+Authenticate with the Factus API using email and password to receive OAuth2 access and refresh tokens.
+
+## Authentication
+
+**Required:** Bearer token from local login.
+
+You must be authenticated with a local access token (from `/api/v1/auth/login`) before calling this endpoint.
+
+## Request Body
+
+<ParamField path="email" type="string" required>
+  Email address for Factus authentication (must be a valid email format)
+</ParamField>
+
+<ParamField path="password" type="string" required>
+  Password for Factus authentication
+</ParamField>
+
+### Request Example
+
+```json
+{
+  "email": "user@example.com",
+  "password": "your_password"
+}
+```
+
+## Response
+
+The response is wrapped in a standard `ApiResponse` envelope:
+
+<ResponseField name="success" type="boolean">
+  Indicates if the operation was successful (always `true` on success)
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Success message: "Autenticación exitosa"
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Contains the authentication token information:
+  
+  <ResponseField name="access_token" type="string">
+    OAuth2 access token for Factus API requests
+  </ResponseField>
+  
+  <ResponseField name="token_type" type="string">
+    Token type (typically "bearer")
+  </ResponseField>
+  
+  <ResponseField name="expires_in" type="integer">
+    Token expiration time in seconds
+  </ResponseField>
+  
+  <ResponseField name="refresh_token" type="string" optional>
+    OAuth2 refresh token for obtaining new access tokens
+  </ResponseField>
+</ResponseField>
+
+<ResponseField name="errors" type="any" optional>
+  Error details (null on success)
+</ResponseField>
+
+### Success Response Example
+
+```json
+{
+  "success": true,
+  "message": "Autenticación exitosa",
+  "data": {
+    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "token_type": "bearer",
+    "expires_in": 3600,
+    "refresh_token": "def502004a8b9c..."
+  },
+  "errors": null
+}
+```
+
+## Error Responses
+
+### 400 Bad Request
+
+Returned when authentication with Factus fails.
+
+```json
+{
+  "detail": "No se pudo obtener el token de Factus: [error message]"
+}
+```
+
+### 401 Unauthorized
+
+Returned when the local bearer token is missing or invalid.
+
+```json
+{
+  "detail": "Not authenticated"
+}
+```

@@ -1,0 +1,162 @@
+---
+title: "Get Numbering Ranges"
+api: "GET /api/v1/lookups/numbering-ranges"
+description: "Retrieve available numbering ranges for electronic documents"
+---
+
+## Overview
+
+This endpoint returns a list of available numbering ranges configured in the Factus platform. Numbering ranges are used to assign consecutive numbers to electronic invoices and other documents according to DIAN regulations.
+
+## Authentication
+
+This endpoint requires both Bearer token authentication and a Factus API token.
+
+<ParamField header="Authorization" type="string" required>
+  Bearer token for API authentication
+  
+  Format: `Bearer <your_access_token>`
+</ParamField>
+
+<ParamField header="X-Factus-Token" type="string" required>
+  Your Factus API token for accessing the e-invoicing platform
+</ParamField>
+
+## Response
+
+Returns a standardized API response containing an array of numbering range objects.
+
+<ResponseField name="success" type="boolean">
+  Indicates if the request was successful
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Human-readable message about the operation result
+</ResponseField>
+
+<ResponseField name="data" type="array">
+  Array of numbering range objects
+  
+  <ResponseField name="id" type="integer">
+    Unique identifier for the numbering range
+  </ResponseField>
+  
+  <ResponseField name="document" type="string">
+    Type of document this range applies to (e.g., "Invoice", "Credit Note")
+  </ResponseField>
+  
+  <ResponseField name="prefix" type="string">
+    Prefix for document numbers in this range
+  </ResponseField>
+  
+  <ResponseField name="from" type="integer" optional>
+    Starting number of the range
+  </ResponseField>
+  
+  <ResponseField name="to" type="integer" optional>
+    Ending number of the range
+  </ResponseField>
+  
+  <ResponseField name="current" type="integer" optional>
+    Current number in the sequence
+  </ResponseField>
+  
+  <ResponseField name="resolution_number" type="string" optional>
+    DIAN resolution number authorizing this range
+  </ResponseField>
+  
+  <ResponseField name="technical_key" type="string" optional>
+    Technical key associated with the numbering range
+  </ResponseField>
+  
+  <ResponseField name="is_active" type="boolean">
+    Whether this numbering range is currently active
+  </ResponseField>
+</ResponseField>
+
+<ResponseField name="errors" type="any" default="null">
+  Error details if the request failed
+</ResponseField>
+
+## Example Request
+
+```bash cURL
+curl --request GET \
+  --url https://api.yourapp.com/api/v1/lookups/numbering-ranges \
+  --header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' \
+  --header 'X-Factus-Token: your_factus_token_here'
+```
+
+## Example Response
+
+```json 200 - Success
+{
+  "success": true,
+  "message": "Rangos de numeración obtenidos exitosamente",
+  "data": [
+    {
+      "id": 1,
+      "document": "Invoice",
+      "prefix": "FV",
+      "from": 1,
+      "to": 5000,
+      "current": 125,
+      "resolution_number": "18760000001",
+      "technical_key": "abc123def456",
+      "is_active": true
+    },
+    {
+      "id": 2,
+      "document": "Credit Note",
+      "prefix": "NC",
+      "from": 1,
+      "to": 1000,
+      "current": 15,
+      "resolution_number": "18760000002",
+      "technical_key": "xyz789uvw012",
+      "is_active": true
+    },
+    {
+      "id": 3,
+      "document": "Invoice",
+      "prefix": "FV-OLD",
+      "from": 1,
+      "to": 1000,
+      "current": 1000,
+      "resolution_number": "18760000000",
+      "technical_key": null,
+      "is_active": false
+    }
+  ],
+  "errors": null
+}
+```
+
+```json 400 - Bad Request
+{
+  "detail": "Error al obtener datos de Factus: Invalid token"
+}
+```
+
+```json 401 - Unauthorized
+{
+  "detail": "Not authenticated"
+}
+```
+
+## Error Responses
+
+<ResponseField name="400" type="Bad Request">
+  Invalid request or error communicating with Factus API. Check the `detail` field for specific error information.
+</ResponseField>
+
+<ResponseField name="401" type="Unauthorized">
+  Missing or invalid authentication credentials. Ensure both Authorization header and X-Factus-Token are provided.
+</ResponseField>
+
+## Usage Notes
+
+- Only active numbering ranges (`is_active: true`) should be used for creating new documents
+- The `current` field indicates the next number that will be assigned
+- Each range has a specific DIAN resolution number that authorizes its use
+- When a range reaches its `to` limit, a new range must be configured with a new DIAN resolution

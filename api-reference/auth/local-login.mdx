@@ -1,0 +1,70 @@
+---
+title: 'Local Login'
+description: 'Authenticate with local credentials to obtain an access token'
+---
+
+## Endpoint
+
+<RequestExample>
+```bash cURL
+curl -X POST https://api.example.com/api/v1/auth/login \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "username=admin&password=admin123"
+```
+</RequestExample>
+
+**POST** `/api/v1/auth/login`
+
+Authenticate using local credentials (username and password) to receive a JWT access token.
+
+## Authentication
+
+No authentication required for this endpoint.
+
+## Request Parameters
+
+This endpoint accepts form data (`application/x-www-form-urlencoded`):
+
+<ParamField path="username" type="string" required>
+  The username for authentication
+</ParamField>
+
+<ParamField path="password" type="string" required>
+  The password for authentication
+</ParamField>
+
+## Response
+
+<ResponseField name="access_token" type="string">
+  JWT access token for authenticated requests
+</ResponseField>
+
+<ResponseField name="token_type" type="string">
+  Token type (always "bearer")
+</ResponseField>
+
+### Success Response Example
+
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "token_type": "bearer"
+}
+```
+
+## Error Responses
+
+### 401 Unauthorized
+
+Returned when credentials are incorrect.
+
+```json
+{
+  "detail": "Incorrect username or password"
+}
+```
+
+**Headers:**
+```
+WWW-Authenticate: Bearer
+```

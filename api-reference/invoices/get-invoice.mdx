@@ -1,0 +1,103 @@
+---
+title: "Get Invoice"
+api: "GET /api/v1/invoices/{number}"
+description: "Retrieve detailed information about a specific invoice by its number"
+---
+
+## Headers
+
+<ParamField header="Authorization" type="string" required>
+  Bearer token for authentication: `Bearer <local_jwt>`
+</ParamField>
+
+<ParamField header="X-Factus-Token" type="string" required>
+  Factus access token obtained from authentication
+</ParamField>
+
+## Path Parameters
+
+<ParamField path="number" type="string" required>
+  The invoice number to retrieve
+</ParamField>
+
+## Response
+
+<ResponseField name="message" type="string">
+  Success message
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Invoice data response
+  <Expandable title="Data properties">
+    <ResponseField name="status" type="string">
+      Response status
+    </ResponseField>
+    
+    <ResponseField name="message" type="string">
+      Status message
+    </ResponseField>
+    
+    <ResponseField name="data" type="object">
+      Complete invoice data including company, customer, bill details, and items. The structure contains all invoice information as returned by the Factus API.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+curl -X GET https://api.yourapp.com/api/v1/invoices/FACT-12345 \
+  -H "Authorization: Bearer <local_jwt>" \
+  -H "X-Factus-Token: <factus_access_token>"
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200
+{
+  "message": "Factura obtenida exitosamente",
+  "data": {
+    "status": "success",
+    "message": "Invoice retrieved successfully",
+    "data": {
+      "company": {
+        "name": "Your Company S.A.S.",
+        "identification": "900123456",
+        "address": "Calle 100 #10-20"
+      },
+      "customer": {
+        "name": "Acme Corporation S.A.S.",
+        "identification": "900123456",
+        "email": "contact@acme.com",
+        "address": "Calle 123 #45-67"
+      },
+      "bill": {
+        "number": "FACT-12345",
+        "prefix": "FACT",
+        "reference_code": "INV-2024-001",
+        "issue_date": "2024-01-15",
+        "cufe": "abc123def456ghi789jkl012mno345pqr678stu901vwx234yz",
+        "subtotal": 1000000.00,
+        "tax_total": 190000.00,
+        "total": 1190000.00
+      },
+      "items": [
+        {
+          "code_reference": "PROD-001",
+          "name": "Software License",
+          "quantity": 1,
+          "price": 1000000.00,
+          "tax_rate": 19.00,
+          "total": 1190000.00
+        }
+      ]
+    }
+  }
+}
+```
+
+```json 400
+{
+  "detail": "Error al obtener la factura: Invoice not found"
+}
+```
+</ResponseExample>

@@ -1,97 +1,95 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "Factus API"
+description: "REST API for Colombian e-invoicing integration with Factus platform and DIAN validation"
 ---
 
-## Setting up
+<div style={{
+  background: 'linear-gradient(135deg, #3d38bd 0%, #5c33cc 100%)',
+  padding: '4rem 2rem',
+  borderRadius: '20px',
+  textAlign: 'center',
+  color: '#ffffff',
+  marginBottom: '3rem'
+}}>
+  <h1 style={{
+    fontSize: '48px',
+    fontWeight: '700',
+    marginBottom: '1rem',
+    color: '#ffffff'
+  }}>
+    Factus API
+  </h1>
+  <p style={{
+    fontSize: '20px',
+    color: '#d8d7e9',
+    maxWidth: '600px',
+    margin: '0 auto'
+  }}>
+    Secure intermediary for Colombian electronic invoicing. Create, validate, and manage DIAN-compliant invoices with ease.
+  </p>
+</div>
 
-Get your documentation site up and running in minutes.
+## Key Features
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={2}>
+  <Card title="JWT Authentication" icon="shield-halved" href="/guides/authentication">
+    Secure local authentication with JWT tokens and Factus OAuth2 integration
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="DIAN Validation" icon="circle-check" href="/guides/creating-invoices">
+    Create and validate electronic invoices with Colombian tax authority
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="Document Downloads" icon="download" href="/guides/downloading-documents">
+    Download invoice PDFs and XML files in base64-encoded format
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
+  <Card title="Email Delivery" icon="envelope" href="/api-reference/invoices/send-email">
+    Send validated invoices directly to customers via email
   </Card>
-</Columns>
+  <Card title="RADIAN Events" icon="clock-rotate-left" href="/api-reference/invoices/get-events">
+    Track complete invoice event history and status changes
+  </Card>
+  <Card title="Reference Data" icon="database" href="/api-reference/lookups/municipalities">
+    Access municipalities, tax types, units, and numbering ranges
+  </Card>
+</CardGroup>
 
-## Create beautiful pages
+## Quick Start
 
-Everything you need to create world-class documentation.
+Get up and running with Factus API in minutes.
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
+<CardGroup cols={2}>
+  <Card title="Introduction" icon="book-open" href="/introduction">
+    Learn about the API architecture and capabilities
   </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
+  <Card title="Quickstart Guide" icon="rocket" href="/quickstart">
+    Follow step-by-step instructions to make your first API call
   </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+</CardGroup>
 
-## Need inspiration?
+## API Endpoints
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+Explore the complete API reference documentation.
+
+<CardGroup cols={3}>
+  <Card title="Authentication" icon="key" href="/api-reference/auth/local-login">
+    Local and Factus authentication endpoints
+  </Card>
+  <Card title="Invoices" icon="file-invoice" href="/api-reference/invoices/create-invoice">
+    Create, retrieve, and manage invoices
+  </Card>
+  <Card title="Lookups" icon="list" href="/api-reference/lookups/municipalities">
+    Reference data and catalog endpoints
+  </Card>
+</CardGroup>
+
+## Architecture
+
+Built with clean architecture principles for maintainability and testability.
+
+<CardGroup cols={2}>
+  <Card title="Overview" icon="diagram-project" href="/architecture/overview">
+    Understand the project structure and design patterns
+  </Card>
+  <Card title="Clean Architecture" icon="layer-group" href="/architecture/clean-architecture">
+    Learn about ports and adapters implementation
+  </Card>
+</CardGroup>

@@ -1,0 +1,383 @@
+---
+title: "Create Invoice"
+api: "POST /api/v1/invoices"
+description: "Create a new electronic invoice in the Factus system"
+---
+
+## Headers
+
+<ParamField header="Authorization" type="string" required>
+  Bearer token for authentication: `Bearer <local_jwt>`
+</ParamField>
+
+<ParamField header="X-Factus-Token" type="string" required>
+  Factus access token obtained from authentication
+</ParamField>
+
+## Request Body
+
+<ParamField body="numbering_range_id" type="integer">
+  Numbering range ID for the invoice
+</ParamField>
+
+<ParamField body="document" type="string" default="01">
+  Document type code. Default: "01" (Sales Invoice)
+</ParamField>
+
+<ParamField body="reference_code" type="string" required>
+  Unique reference code for the invoice
+</ParamField>
+
+<ParamField body="observation" type="string">
+  Additional observations or notes (max 250 characters)
+</ParamField>
+
+<ParamField body="payment_method_code" type="string" default="10">
+  Payment method code. Default: "10" (cash)
+</ParamField>
+
+<ParamField body="payment_form" type="string" default="1">
+  Payment form: "1" for immediate payment, "2" for credit
+</ParamField>
+
+<ParamField body="payment_due_date" type="string">
+  Payment due date (required if payment_form is "2"). Format: YYYY-MM-DD
+</ParamField>
+
+<ParamField body="operation_type" type="string">
+  Type of operation for the invoice
+</ParamField>
+
+<ParamField body="send_email" type="boolean">
+  Whether to send email notification automatically
+</ParamField>
+
+<ParamField body="customer" type="object" required>
+  Customer information
+  <Expandable title="Customer properties">
+    <ParamField body="identification_document_id" type="integer" required>
+      Document type ID (e.g., 6 for NIT)
+    </ParamField>
+    
+    <ParamField body="identification" type="string" required>
+      Customer identification number
+    </ParamField>
+    
+    <ParamField body="dv" type="string">
+      Verification digit (required for NIT)
+    </ParamField>
+    
+    <ParamField body="company" type="string">
+      Company name (for legal entities)
+    </ParamField>
+    
+    <ParamField body="trade_name" type="string">
+      Trade name
+    </ParamField>
+    
+    <ParamField body="names" type="string">
+      Full name (required for natural persons)
+    </ParamField>
+    
+    <ParamField body="address" type="string">
+      Customer address
+    </ParamField>
+    
+    <ParamField body="email" type="string">
+      Customer email address
+    </ParamField>
+    
+    <ParamField body="phone" type="string">
+      Customer phone number
+    </ParamField>
+    
+    <ParamField body="municipality_id" type="integer">
+      Municipality ID
+    </ParamField>
+    
+    <ParamField body="legal_organization_id" type="integer" required>
+      Legal organization type ID
+    </ParamField>
+    
+    <ParamField body="tribute_id" type="integer" required>
+      Tribute/tax regime ID
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="items" type="array" required>
+  List of invoice items
+  <Expandable title="Item properties">
+    <ParamField body="code_reference" type="string" required>
+      Product/service code reference
+    </ParamField>
+    
+    <ParamField body="name" type="string" required>
+      Product/service name
+    </ParamField>
+    
+    <ParamField body="quantity" type="integer" required>
+      Quantity (must be greater than 0)
+    </ParamField>
+    
+    <ParamField body="price" type="number" required>
+      Unit price (must be greater than 0, max 2 decimal places)
+    </ParamField>
+    
+    <ParamField body="discount_rate" type="number" default="0.00">
+      Discount rate (0-100, max 2 decimal places)
+    </ParamField>
+    
+    <ParamField body="tax_rate" type="number" required>
+      Tax rate (max 2 decimal places)
+    </ParamField>
+    
+    <ParamField body="unit_measure_id" type="integer" required>
+      Unit of measure ID
+    </ParamField>
+    
+    <ParamField body="standard_code_id" type="integer" required>
+      Standard code ID
+    </ParamField>
+    
+    <ParamField body="is_excluded" type="integer" required>
+      Tax exclusion flag: 0 (not excluded) or 1 (excluded)
+    </ParamField>
+    
+    <ParamField body="tribute_id" type="integer" required>
+      Tribute/tax ID for this item
+    </ParamField>
+    
+    <ParamField body="scheme_id" type="string">
+      Scheme identifier
+    </ParamField>
+    
+    <ParamField body="note" type="string">
+      Additional notes for the item
+    </ParamField>
+    
+    <ParamField body="withholding_taxes" type="array">
+      List of withholding taxes
+      <Expandable title="Withholding tax properties">
+        <ParamField body="code" type="string" required>
+          Tax code
+        </ParamField>
+        
+        <ParamField body="withholding_tax_rate" type="number" required>
+          Withholding tax rate
+        </ParamField>
+      </Expandable>
+    </ParamField>
+    
+    <ParamField body="mandate" type="object">
+      Mandate information
+      <Expandable title="Mandate properties">
+        <ParamField body="identification_document_id" type="integer" required>
+          Document type ID
+        </ParamField>
+        
+        <ParamField body="identification" type="string" required>
+          Identification number
+        </ParamField>
+      </Expandable>
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="order_reference" type="object">
+  Order reference information
+  <Expandable title="Order reference properties">
+    <ParamField body="reference_code" type="string" required>
+      Order reference code
+    </ParamField>
+    
+    <ParamField body="issue_date" type="string">
+      Order issue date (YYYY-MM-DD)
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="related_documents" type="array">
+  List of related documents
+  <Expandable title="Related document properties">
+    <ParamField body="code" type="string" required>
+      Document code
+    </ParamField>
+    
+    <ParamField body="issue_date" type="string" required>
+      Issue date (YYYY-MM-DD)
+    </ParamField>
+    
+    <ParamField body="number" type="string" required>
+      Document number
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="billing_period" type="object">
+  Billing period information
+  <Expandable title="Billing period properties">
+    <ParamField body="start_date" type="string" required>
+      Period start date (YYYY-MM-DD)
+    </ParamField>
+    
+    <ParamField body="start_time" type="string">
+      Period start time
+    </ParamField>
+    
+    <ParamField body="end_date" type="string" required>
+      Period end date (YYYY-MM-DD)
+    </ParamField>
+    
+    <ParamField body="end_time" type="string" required>
+      Period end time
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="establishment" type="object">
+  Establishment information
+  <Expandable title="Establishment properties">
+    <ParamField body="name" type="string" required>
+      Establishment name
+    </ParamField>
+    
+    <ParamField body="address" type="string" required>
+      Establishment address
+    </ParamField>
+    
+    <ParamField body="phone_number" type="string" required>
+      Phone number
+    </ParamField>
+    
+    <ParamField body="email" type="string" required>
+      Email address
+    </ParamField>
+    
+    <ParamField body="municipality_id" type="integer" required>
+      Municipality ID
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="allowance_charges" type="array">
+  List of allowances and charges
+  <Expandable title="Allowance/charge properties">
+    <ParamField body="concept_type" type="string" required>
+      Concept type code
+    </ParamField>
+    
+    <ParamField body="is_surcharge" type="boolean" required>
+      True for surcharge, false for discount
+    </ParamField>
+    
+    <ParamField body="reason" type="string" required>
+      Reason for allowance/charge
+    </ParamField>
+    
+    <ParamField body="base_amount" type="number" required>
+      Base amount
+    </ParamField>
+    
+    <ParamField body="amount" type="number" required>
+      Allowance/charge amount
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+## Response
+
+<ResponseField name="message" type="string">
+  Success message
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Invoice creation response data
+  <Expandable title="Data properties">
+    <ResponseField name="number" type="string">
+      Generated invoice number
+    </ResponseField>
+    
+    <ResponseField name="prefix" type="string">
+      Invoice prefix
+    </ResponseField>
+    
+    <ResponseField name="cufe" type="string">
+      CUFE (Unique Electronic Invoice Code)
+    </ResponseField>
+    
+    <ResponseField name="qr_url" type="string">
+      QR code URL for the invoice
+    </ResponseField>
+    
+    <ResponseField name="status" type="string">
+      Invoice status
+    </ResponseField>
+    
+    <ResponseField name="message" type="string">
+      Additional status message
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+curl -X POST https://api.yourapp.com/api/v1/invoices \
+  -H "Authorization: Bearer <local_jwt>" \
+  -H "X-Factus-Token: <factus_access_token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "reference_code": "INV-2024-001",
+    "payment_method_code": "10",
+    "payment_form": "1",
+    "customer": {
+      "identification_document_id": 6,
+      "identification": "900123456",
+      "dv": "7",
+      "company": "Acme Corporation S.A.S.",
+      "email": "contact@acme.com",
+      "address": "Calle 123 #45-67",
+      "phone": "3001234567",
+      "municipality_id": 11001,
+      "legal_organization_id": 1,
+      "tribute_id": 1
+    },
+    "items": [
+      {
+        "code_reference": "PROD-001",
+        "name": "Software License",
+        "quantity": 1,
+        "price": 1000000.00,
+        "discount_rate": 0.00,
+        "tax_rate": 19.00,
+        "unit_measure_id": 70,
+        "standard_code_id": 999,
+        "is_excluded": 0,
+        "tribute_id": 1
+      }
+    ]
+  }'
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200
+{
+  "message": "Factura creada exitosamente",
+  "data": {
+    "number": "FACT-12345",
+    "prefix": "FACT",
+    "cufe": "abc123def456ghi789jkl012mno345pqr678stu901vwx234yz",
+    "qr_url": "https://factus.com/qr/abc123def456",
+    "status": "success",
+    "message": "Invoice created successfully"
+  }
+}
+```
+
+```json 400
+{
+  "detail": "Error al crear la factura: Invalid customer data"
+}
+```
+</ResponseExample>

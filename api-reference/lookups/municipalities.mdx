@@ -1,0 +1,126 @@
+---
+title: "Get Municipalities"
+api: "GET /api/v1/lookups/municipalities"
+description: "Retrieve a list of Colombian municipalities with their codes and departments"
+---
+
+## Overview
+
+This endpoint returns a complete list of Colombian municipalities. Each municipality includes its unique identifier, name, code, and the department it belongs to.
+
+## Authentication
+
+This endpoint requires both Bearer token authentication and a Factus API token.
+
+<ParamField header="Authorization" type="string" required>
+  Bearer token for API authentication
+  
+  Format: `Bearer <your_access_token>`
+</ParamField>
+
+<ParamField header="X-Factus-Token" type="string" required>
+  Your Factus API token for accessing the e-invoicing platform
+</ParamField>
+
+## Response
+
+Returns a standardized API response containing an array of municipality objects.
+
+<ResponseField name="success" type="boolean">
+  Indicates if the request was successful
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Human-readable message about the operation result
+</ResponseField>
+
+<ResponseField name="data" type="array">
+  Array of municipality objects
+  
+  <ResponseField name="id" type="integer">
+    Unique identifier for the municipality
+  </ResponseField>
+  
+  <ResponseField name="name" type="string">
+    Name of the municipality
+  </ResponseField>
+  
+  <ResponseField name="code" type="string">
+    Official municipality code
+  </ResponseField>
+  
+  <ResponseField name="department" type="string">
+    Name of the department the municipality belongs to
+  </ResponseField>
+</ResponseField>
+
+<ResponseField name="errors" type="any" default="null">
+  Error details if the request failed
+</ResponseField>
+
+## Example Request
+
+```bash cURL
+curl --request GET \
+  --url https://api.yourapp.com/api/v1/lookups/municipalities \
+  --header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' \
+  --header 'X-Factus-Token: your_factus_token_here'
+```
+
+## Example Response
+
+```json 200 - Success
+{
+  "success": true,
+  "message": "Municipios obtenidos exitosamente",
+  "data": [
+    {
+      "id": 1,
+      "name": "Bogotá D.C.",
+      "code": "11001",
+      "department": "Bogotá D.C."
+    },
+    {
+      "id": 2,
+      "name": "Medellín",
+      "code": "05001",
+      "department": "Antioquia"
+    },
+    {
+      "id": 3,
+      "name": "Cali",
+      "code": "76001",
+      "department": "Valle del Cauca"
+    },
+    {
+      "id": 4,
+      "name": "Barranquilla",
+      "code": "08001",
+      "department": "Atlántico"
+    }
+  ],
+  "errors": null
+}
+```
+
+```json 400 - Bad Request
+{
+  "detail": "Error al obtener datos de Factus: Invalid token"
+}
+```
+
+```json 401 - Unauthorized
+{
+  "detail": "Not authenticated"
+}
+```
+
+## Error Responses
+
+<ResponseField name="400" type="Bad Request">
+  Invalid request or error communicating with Factus API. Check the `detail` field for specific error information.
+</ResponseField>
+
+<ResponseField name="401" type="Unauthorized">
+  Missing or invalid authentication credentials. Ensure both Authorization header and X-Factus-Token are provided.
+</ResponseField>

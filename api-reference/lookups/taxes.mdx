@@ -1,0 +1,126 @@
+---
+title: "Get Tax Types"
+api: "GET /api/v1/lookups/taxes"
+description: "Retrieve a list of available product tax types for e-invoicing"
+---
+
+## Overview
+
+This endpoint returns a list of tax types that can be applied to products in electronic invoices. Each tax type includes its identifier, name, code, and optional description.
+
+## Authentication
+
+This endpoint requires both Bearer token authentication and a Factus API token.
+
+<ParamField header="Authorization" type="string" required>
+  Bearer token for API authentication
+  
+  Format: `Bearer <your_access_token>`
+</ParamField>
+
+<ParamField header="X-Factus-Token" type="string" required>
+  Your Factus API token for accessing the e-invoicing platform
+</ParamField>
+
+## Response
+
+Returns a standardized API response containing an array of tax type objects.
+
+<ResponseField name="success" type="boolean">
+  Indicates if the request was successful
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Human-readable message about the operation result
+</ResponseField>
+
+<ResponseField name="data" type="array">
+  Array of tax type objects
+  
+  <ResponseField name="id" type="integer">
+    Unique identifier for the tax type
+  </ResponseField>
+  
+  <ResponseField name="name" type="string">
+    Name of the tax type
+  </ResponseField>
+  
+  <ResponseField name="code" type="string">
+    Official tax type code
+  </ResponseField>
+  
+  <ResponseField name="description" type="string" optional>
+    Optional detailed description of the tax type
+  </ResponseField>
+</ResponseField>
+
+<ResponseField name="errors" type="any" default="null">
+  Error details if the request failed
+</ResponseField>
+
+## Example Request
+
+```bash cURL
+curl --request GET \
+  --url https://api.yourapp.com/api/v1/lookups/taxes \
+  --header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' \
+  --header 'X-Factus-Token: your_factus_token_here'
+```
+
+## Example Response
+
+```json 200 - Success
+{
+  "success": true,
+  "message": "Tipos de impuesto obtenidos exitosamente",
+  "data": [
+    {
+      "id": 1,
+      "name": "IVA",
+      "code": "01",
+      "description": "Impuesto al Valor Agregado"
+    },
+    {
+      "id": 2,
+      "name": "INC",
+      "code": "04",
+      "description": "Impuesto Nacional al Consumo"
+    },
+    {
+      "id": 3,
+      "name": "ICA",
+      "code": "03",
+      "description": "Impuesto de Industria y Comercio"
+    },
+    {
+      "id": 4,
+      "name": "No Causa",
+      "code": "ZZ",
+      "description": null
+    }
+  ],
+  "errors": null
+}
+```
+
+```json 400 - Bad Request
+{
+  "detail": "Error al obtener datos de Factus: Invalid token"
+}
+```
+
+```json 401 - Unauthorized
+{
+  "detail": "Not authenticated"
+}
+```
+
+## Error Responses
+
+<ResponseField name="400" type="Bad Request">
+  Invalid request or error communicating with Factus API. Check the `detail` field for specific error information.
+</ResponseField>
+
+<ResponseField name="401" type="Unauthorized">
+  Missing or invalid authentication credentials. Ensure both Authorization header and X-Factus-Token are provided.
+</ResponseField>

@@ -1,0 +1,675 @@
+---
+title: Error Handling
+description: Understand error responses, HTTP status codes, and troubleshooting strategies for the Factus API
+---
+
+The Factus API uses standard HTTP status codes and a consistent response envelope structure to communicate errors. This guide helps you understand, handle, and troubleshoot common errors.
+
+## Response Envelope Structure
+
+All API responses follow a standardized envelope structure defined in `ApiResponse`:
+
+```python
+class ApiResponse(BaseModel, Generic[DataT]):
+    success: bool = True
+    message: str = "Operación exitosa"
+    data: Optional[DataT] = None
+    errors: Optional[Any] = None
+```
+
+### Success Response
+
+```json
+{
+  "success": true,
+  "message": "Factura creada exitosamente",
+  "data": {
+    "number": "SETP990000123",
+    "prefix": "SETP",
+    "cufe": "abc123..."
+  },
+  "errors": null
+}
+```
+
+### Error Response
+
+When an error occurs, the API returns an HTTP error status code with details in the response body:
+
+```json
+{
+  "detail": "Error al crear la factura: Invalid customer data"
+}
+```
+
+For validation errors, FastAPI returns a structured error array:
+
+```json
+{
+  "detail": [
+    {
+      "loc": ["body", "customer", "identification"],
+      "msg": "field required",
+      "type": "value_error.missing"
+    },
+    {
+      "loc": ["body", "items", 0, "price"],
+      "msg": "price must have max 2 decimal places",
+      "type": "value_error"
+    }
+  ]
+}
+```
+
+## HTTP Status Codes
+
+The API uses standard HTTP status codes to indicate the success or failure of requests:
+
+### 2xx Success
+
+<ParamField path="200 OK" type="Success">
+  Request completed successfully. Response contains the requested data.
+</ParamField>
+
+### 4xx Client Errors
+
+<ParamField path="400 Bad Request" type="Client Error">
+  Invalid request data, validation errors, or business logic errors.
+  
+  **Common causes:**
+  - Missing required fields
+  - Invalid data types or formats
+  - Validation rule violations
+  - Factus API errors (forwarded from external service)
+</ParamField>
+
+<ParamField path="401 Unauthorized" type="Client Error">
+  Authentication failed or missing credentials.
+  
+  **Common causes:**
+  - Missing `Authorization` header
+  - Invalid or expired JWT token
+  - Incorrect username/password for local authentication
+</ParamField>
+
+<ParamField path="422 Unprocessable Entity" type="Client Error">
+  Request validation failed. FastAPI returns detailed validation errors.
+  
+  **Common causes:**
+  - Type mismatches (string instead of integer)
+  - Invalid email format
+  - Value out of allowed range
+</ParamField>
+
+### 5xx Server Errors
+
+<ParamField path="500 Internal Server Error" type="Server Error">
+  Unexpected server error. Check server logs for details.
+</ParamField>
+
+<ParamField path="503 Service Unavailable" type="Server Error">
+  The Factus external service is temporarily unavailable.
+</ParamField>
+
+## Common Errors
+
+### Authentication Errors
+
+#### Missing or Invalid JWT Token
+
+**Status Code:** `401 Unauthorized`
+
+```json
+{
+  "detail": "Could not validate credentials"
+}
+```
+
+**Cause:** The `Authorization` header is missing, malformed, or contains an invalid/expired token.
+
+**Solution:**
+
+<Steps>
+  <Step title="Check Authorization Header">
+    Ensure the `Authorization` header is present and properly formatted:
+    
+    ```http
+    Authorization: Bearer YOUR_JWT_TOKEN
+    ```
+  </Step>
+
+  <Step title="Verify Token Validity">
+    JWT tokens expire after a configured period (default: configurable via `ACCESS_TOKEN_EXPIRE_MINUTES`). Re-authenticate if expired:
+    
+    ```bash
+    curl -X POST "http://localhost:8000/api/v1/auth/login" \
+      -H "Content-Type: application/x-www-form-urlencoded" \
+      -d "username=admin&password=admin123"
+    ```
+  </Step>
+</Steps>
+
+#### Incorrect Local Credentials
+
+**Status Code:** `401 Unauthorized`
+
+```json
+{
+  "detail": "Incorrect username or password"
+}
+```
+
+**Cause:** Invalid username or password for local authentication.
+
+**Solution:** Verify credentials. Default credentials are `admin` / `admin123`.
+
+#### Factus Authentication Failed
+
+**Status Code:** `400 Bad Request`
+
+```json
+{
+  "detail": "No se pudo obtener el token de Factus: Invalid credentials"
+}
+```
+
+**Cause:** Invalid Factus email/password or Factus service unavailable.
+
+**Solution:**
+- Verify your Factus credentials are correct
+- Check Factus service status
+- Ensure network connectivity to Factus API
+
+### Validation Errors
+
+#### Missing Required Fields
+
+**Status Code:** `422 Unprocessable Entity`
+
+```json
+{
+  "detail": [
+    {
+      "loc": ["body", "customer", "identification"],
+      "msg": "field required",
+      "type": "value_error.missing"
+    }
+  ]
+}
+```
+
+**Cause:** Required field is missing from request body.
+
+**Solution:** Include all required fields. Check the [API Reference](/api-reference/invoices/create-invoice) for required fields.
+
+#### Invalid Data Type
+
+**Status Code:** `422 Unprocessable Entity`
+
+```json
+{
+  "detail": [
+    {
+      "loc": ["body", "items", 0, "quantity"],
+      "msg": "value is not a valid integer",
+      "type": "type_error.integer"
+    }
+  ]
+}
+```
+
+**Cause:** Field value has incorrect type (e.g., string instead of integer).
+
+**Solution:** Ensure field values match expected types:
+- `quantity`: integer
+- `price`, `discount_rate`, `tax_rate`: decimal/float
+- `email`: valid email string
+
+#### Decimal Precision Error
+
+**Status Code:** `400 Bad Request` (from model validation)
+
+```json
+{
+  "detail": [
+    {
+      "loc": ["body", "items", 0, "price"],
+      "msg": "price must have max 2 decimal places",
+      "type": "value_error"
+    }
+  ]
+}
+```
+
+**Cause:** Decimal fields (`price`, `discount_rate`, `tax_rate`) exceed 2 decimal places.
+
+**Solution:** Round decimal values to 2 decimal places:
+
+```python
+from decimal import Decimal, ROUND_HALF_UP
+
+price = Decimal("50000.12345").quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+# Result: Decimal('50000.12')
+```
+
+#### Business Logic Validation
+
+**Status Code:** `400 Bad Request`
+
+```json
+{
+  "detail": [
+    {
+      "loc": ["body"],
+      "msg": "payment_due_date es obligatorio cuando payment_form es 2 (crédito)",
+      "type": "value_error"
+    }
+  ]
+}
+```
+
+**Cause:** Business rule violation (e.g., missing `payment_due_date` for credit invoices).
+
+**Solution:** Follow validation rules:
+- When `payment_form` is `"2"` (credit), `payment_due_date` is required
+- Invoice must contain at least one item
+- For NIT documents (`identification_document_id` = 6), `dv` is required
+
+### Factus API Errors
+
+#### Invoice Creation Failed
+
+**Status Code:** `400 Bad Request`
+
+```json
+{
+  "detail": "Error al crear la factura: Duplicate invoice reference"
+}
+```
+
+**Cause:** Error from Factus service (e.g., duplicate reference code, invalid data).
+
+**Solution:**
+- Ensure `reference_code` is unique
+- Verify all Factus-specific field values are valid
+- Check Factus documentation for field requirements
+
+#### Document Not Found
+
+**Status Code:** `400 Bad Request`
+
+```json
+{
+  "detail": "Error al descargar el PDF: Invoice not found"
+}
+```
+
+**Cause:** Invoice number doesn't exist in Factus.
+
+**Solution:** Verify the invoice number and ensure it was successfully created.
+
+#### Token Refresh Failed
+
+**Status Code:** `400 Bad Request`
+
+```json
+{
+  "detail": "No se pudo refrescar el token de Factus: Invalid refresh token"
+}
+```
+
+**Cause:** Refresh token is invalid or expired.
+
+**Solution:** Re-authenticate with Factus credentials to obtain new tokens.
+
+## Error Handling Strategies
+
+### Python Example
+
+```python
+import httpx
+from typing import Optional
+import logging
+
+logger = logging.getLogger(__name__)
+
+class FactusAPIError(Exception):
+    """Custom exception for Factus API errors"""
+    def __init__(self, status_code: int, detail: str):
+        self.status_code = status_code
+        self.detail = detail
+        super().__init__(f"[{status_code}] {detail}")
+
+class FactusClient:
+    def __init__(self, base_url: str, local_token: str, factus_token: str):
+        self.base_url = base_url
+        self.local_token = local_token
+        self.factus_token = factus_token
+
+    async def create_invoice(self, invoice_data: dict) -> dict:
+        """Create invoice with comprehensive error handling"""
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{self.base_url}/api/v1/invoices",
+                    headers={
+                        "Authorization": f"Bearer {self.local_token}",
+                        "X-Factus-Token": self.factus_token,
+                        "Content-Type": "application/json"
+                    },
+                    json=invoice_data,
+                    timeout=30.0
+                )
+                
+                # Check for HTTP errors
+                if not response.is_success:
+                    error_data = response.json()
+                    detail = error_data.get("detail", "Unknown error")
+                    
+                    # Handle specific error cases
+                    if response.status_code == 401:
+                        logger.error("Authentication failed")
+                        raise FactusAPIError(401, "Authentication required")
+                    
+                    elif response.status_code == 422:
+                        # Validation errors
+                        logger.error(f"Validation errors: {detail}")
+                        raise FactusAPIError(422, f"Validation failed: {detail}")
+                    
+                    elif response.status_code == 400:
+                        # Business logic or Factus API errors
+                        logger.error(f"Request failed: {detail}")
+                        raise FactusAPIError(400, detail)
+                    
+                    else:
+                        # Generic error
+                        raise FactusAPIError(response.status_code, detail)
+                
+                return response.json()
+        
+        except httpx.TimeoutException:
+            logger.error("Request timeout")
+            raise FactusAPIError(504, "Request timeout")
+        
+        except httpx.NetworkError as e:
+            logger.error(f"Network error: {e}")
+            raise FactusAPIError(503, "Network error")
+        
+        except Exception as e:
+            logger.exception("Unexpected error")
+            raise FactusAPIError(500, f"Unexpected error: {str(e)}")
+
+# Usage with error handling
+async def create_invoice_with_retry(client: FactusClient, invoice_data: dict):
+    max_retries = 3
+    retry_delay = 2  # seconds
+    
+    for attempt in range(max_retries):
+        try:
+            result = await client.create_invoice(invoice_data)
+            return result
+        
+        except FactusAPIError as e:
+            if e.status_code in [401, 422, 400]:
+                # Don't retry client errors
+                logger.error(f"Client error: {e}")
+                raise
+            
+            if attempt < max_retries - 1:
+                # Retry on server errors or network issues
+                logger.warning(f"Attempt {attempt + 1} failed, retrying...")
+                await asyncio.sleep(retry_delay * (attempt + 1))
+            else:
+                logger.error(f"All {max_retries} attempts failed")
+                raise
+```
+
+### TypeScript Example
+
+```typescript
+class FactusAPIError extends Error {
+  constructor(
+    public statusCode: number,
+    public detail: string
+  ) {
+    super(`[${statusCode}] ${detail}`);
+    this.name = 'FactusAPIError';
+  }
+}
+
+class FactusClient {
+  constructor(
+    private baseUrl: string,
+    private localToken: string,
+    private factusToken: string
+  ) {}
+
+  async createInvoice(invoiceData: any): Promise<any> {
+    try {
+      const response = await fetch(`${this.baseUrl}/api/v1/invoices`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.localToken}`,
+          'X-Factus-Token': this.factusToken,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(invoiceData)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        const detail = errorData.detail || 'Unknown error';
+
+        switch (response.status) {
+          case 401:
+            console.error('Authentication failed');
+            throw new FactusAPIError(401, 'Authentication required');
+          
+          case 422:
+            console.error('Validation errors:', detail);
+            throw new FactusAPIError(422, `Validation failed: ${JSON.stringify(detail)}`);
+          
+          case 400:
+            console.error('Request failed:', detail);
+            throw new FactusAPIError(400, detail);
+          
+          default:
+            throw new FactusAPIError(response.status, detail);
+        }
+      }
+
+      return await response.json();
+    } catch (error) {
+      if (error instanceof FactusAPIError) {
+        throw error;
+      }
+      
+      // Network or other errors
+      console.error('Unexpected error:', error);
+      throw new FactusAPIError(500, `Unexpected error: ${error}`);
+    }
+  }
+}
+
+// Usage with retry logic
+async function createInvoiceWithRetry(
+  client: FactusClient,
+  invoiceData: any,
+  maxRetries: number = 3
+): Promise<any> {
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const result = await client.createInvoice(invoiceData);
+      return result;
+    } catch (error) {
+      if (error instanceof FactusAPIError) {
+        // Don't retry client errors (4xx)
+        if (error.statusCode >= 400 && error.statusCode < 500) {
+          console.error('Client error:', error.detail);
+          throw error;
+        }
+        
+        // Retry server errors (5xx)
+        if (attempt < maxRetries - 1) {
+          const delay = 2000 * (attempt + 1); // Exponential backoff
+          console.warn(`Attempt ${attempt + 1} failed, retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        } else {
+          console.error(`All ${maxRetries} attempts failed`);
+          throw error;
+        }
+      } else {
+        throw error;
+      }
+    }
+  }
+}
+```
+
+## Troubleshooting Tips
+
+<Accordion title="Enable Debug Logging">
+  For Python applications, enable debug logging to see detailed request/response information:
+  
+  ```python
+  import logging
+  
+  logging.basicConfig(level=logging.DEBUG)
+  httpx_logger = logging.getLogger("httpx")
+  httpx_logger.setLevel(logging.DEBUG)
+  ```
+</Accordion>
+
+<Accordion title="Validate Request Data Locally">
+  Before sending requests, validate data using Pydantic models:
+  
+  ```python
+  from app.src.domain.models.invoice import Invoice
+  
+  try:
+      invoice = Invoice(**invoice_data)
+  except ValidationError as e:
+      print(f"Local validation failed: {e}")
+      # Fix data before sending to API
+  ```
+</Accordion>
+
+<Accordion title="Check Factus Service Status">
+  If experiencing persistent errors, verify the Factus service is operational:
+  
+  - Check Factus status page/dashboard
+  - Verify network connectivity to Factus API
+  - Test with Factus API directly (outside this wrapper API)
+</Accordion>
+
+<Accordion title="Review Environment Configuration">
+  Ensure environment variables are correctly set:
+  
+  ```bash
+  # Required settings
+  FACTUS_BASE_URL=https://api.factus.com.co
+  FACTUS_CLIENT_ID=your_client_id
+  FACTUS_CLIENT_SECRET=your_client_secret
+  SECRET_KEY=your_jwt_secret_key
+  ```
+</Accordion>
+
+<Accordion title="Implement Comprehensive Logging">
+  Log all API interactions for debugging:
+  
+  ```python
+  logger.info(f"Creating invoice: {reference_code}")
+  logger.debug(f"Request data: {invoice_data}")
+  
+  try:
+      result = await create_invoice(invoice_data)
+      logger.info(f"Invoice created: {result['data']['number']}")
+  except Exception as e:
+      logger.error(f"Failed to create invoice: {e}", exc_info=True)
+  ```
+</Accordion>
+
+## Error Response Patterns
+
+### FastAPI Validation Error Format
+
+```typescript
+interface ValidationError {
+  loc: (string | number)[];  // Location of error in request
+  msg: string;                // Error message
+  type: string;               // Error type
+}
+
+interface ValidationErrorResponse {
+  detail: ValidationError[];
+}
+```
+
+**Example:**
+
+```json
+{
+  "detail": [
+    {
+      "loc": ["body", "customer", "email"],
+      "msg": "value is not a valid email address",
+      "type": "value_error.email"
+    }
+  ]
+}
+```
+
+### Custom Error Format
+
+```typescript
+interface CustomErrorResponse {
+  detail: string;
+}
+```
+
+**Example:**
+
+```json
+{
+  "detail": "Error al crear la factura: Duplicate reference code"
+}
+```
+
+## Best Practices
+
+<Steps>
+  <Step title="Always Check Response Status">
+    Don't assume requests succeeded. Always check the HTTP status code and handle errors appropriately.
+  </Step>
+
+  <Step title="Implement Retry Logic for Transient Errors">
+    Network issues and temporary service unavailability (5xx errors) should trigger retries with exponential backoff.
+  </Step>
+
+  <Step title="Don't Retry Client Errors (4xx)">
+    Client errors indicate problems with your request data. Fix the data instead of retrying.
+  </Step>
+
+  <Step title="Log Errors with Context">
+    Include request parameters, user context, and timestamps in error logs for easier debugging.
+  </Step>
+
+  <Step title="Validate Data Before Sending">
+    Use Pydantic models or JSON schema validation to catch errors before making API requests.
+  </Step>
+
+  <Step title="Handle Token Expiration Gracefully">
+    Implement automatic token refresh when receiving 401 errors, then retry the original request.
+  </Step>
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="lock" href="/guides/authentication">
+    Learn about the two-layer authentication system
+  </Card>
+  <Card title="API Reference" icon="book" href="/api-reference/auth/local-login">
+    Explore all available endpoints
+  </Card>
+</CardGroup>

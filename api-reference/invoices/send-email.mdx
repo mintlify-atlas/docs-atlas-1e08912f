@@ -1,0 +1,98 @@
+---
+title: "Send Invoice Email"
+api: "POST /api/v1/invoices/{number}/send-email"
+description: "Send an invoice to a customer via email with optional PDF attachment"
+---
+
+## Headers
+
+<ParamField header="Authorization" type="string" required>
+  Bearer token for authentication: `Bearer <local_jwt>`
+</ParamField>
+
+<ParamField header="X-Factus-Token" type="string" required>
+  Factus access token obtained from authentication
+</ParamField>
+
+## Path Parameters
+
+<ParamField path="number" type="string" required>
+  The invoice number to send via email
+</ParamField>
+
+## Request Body
+
+<ParamField body="email" type="string" required>
+  Recipient email address
+</ParamField>
+
+<ParamField body="pdf_base_64_encoded" type="string">
+  Optional Base64-encoded PDF file to attach to the email. If not provided, the system will generate the PDF automatically.
+</ParamField>
+
+## Response
+
+<ResponseField name="message" type="string">
+  Success message
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Email send response
+  <Expandable title="Data properties">
+    <ResponseField name="status" type="string">
+      Response status
+    </ResponseField>
+    
+    <ResponseField name="message" type="string">
+      Detailed status message
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+curl -X POST https://api.yourapp.com/api/v1/invoices/FACT-12345/send-email \
+  -H "Authorization: Bearer <local_jwt>" \
+  -H "X-Factus-Token: <factus_access_token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "customer@example.com"
+  }'
+```
+
+```bash With PDF Attachment
+curl -X POST https://api.yourapp.com/api/v1/invoices/FACT-12345/send-email \
+  -H "Authorization: Bearer <local_jwt>" \
+  -H "X-Factus-Token: <factus_access_token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "customer@example.com",
+    "pdf_base_64_encoded": "JVBERi0xLjQKJeLjz9MKMyAwIG9iago8PC9UeXBlIC9QYWdlCi9QYXJlbnQgMSAwIFIK..."
+  }'
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200
+{
+  "message": "Correo enviado exitosamente",
+  "data": {
+    "status": "success",
+    "message": "Email sent successfully to customer@example.com"
+  }
+}
+```
+
+```json 400
+{
+  "detail": "Error al enviar el correo: Invalid email address"
+}
+```
+</ResponseExample>
+
+## Usage Notes
+
+- If `pdf_base_64_encoded` is not provided, the system will automatically generate and attach the invoice PDF
+- The email will include the invoice details and the PDF attachment
+- Make sure the email address is valid and properly formatted
+- The PDF attachment (if provided) must be a valid Base64-encoded PDF file

@@ -1,80 +1,372 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quick Start
+description: Get up and running with Factus API in minutes
 ---
 
-## Get started in three steps
+## Prerequisites
 
-Get your documentation site running locally and make your first customization.
+Before you begin, ensure you have:
 
-### Step 1: Set up your local environment
+- **Python 3.12 or higher** installed
+- A **Factus account** (sandbox or production)
+- Basic familiarity with REST APIs and Python
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+<Info>
+  Don't have a Factus account? You can use our [sandbox credentials](#sandbox-credentials) to get started immediately.
+</Info>
 
-### Step 2: Deploy your changes
+## Installation
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+<Steps>
+  <Step title="Clone the Repository">
+    Clone the Factus API repository and navigate to the project directory:
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+    ```bash
+    git clone <repo-url>
+    cd factus-api
+    ```
+  </Step>
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+  <Step title="Create Virtual Environment">
+    Create and activate a Python virtual environment:
 
-### Step 3: Go live
+    ```bash
+    python -m venv venv
+    source venv/bin/activate  # On Windows: venv\Scripts\activate
+    ```
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+    <Note>
+      Using a virtual environment isolates your project dependencies from your system Python installation.
+    </Note>
+  </Step>
 
-## Next steps
+  <Step title="Install Dependencies">
+    Install the required Python packages:
 
-Now that you have your docs running, explore these key features:
+    ```bash
+    pip install -r requirements.txt
+    ```
 
-<CardGroup cols={2}>
+    This installs FastAPI, httpx, pydantic, and other dependencies.
+  </Step>
 
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
+  <Step title="Configure Environment Variables">
+    Create a `.env` file in the project root with your configuration:
 
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
+    ```bash
+    cp .env.example .env
+    ```
 
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
+    Edit the `.env` file with your credentials:
 
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
+    ```env
+    # Factus API Configuration
+    FACTUS_BASE_URL=https://api-sandbox.factus.com.co
+    FACTUS_CLIENT_ID=your_client_id
+    FACTUS_CLIENT_SECRET=your_client_secret
 
-</CardGroup>
+    # Local API Security
+    SECRET_KEY=your_random_secret_key_here
+    ```
+
+    <Warning>
+      Generate a strong `SECRET_KEY` for JWT token signing. You can generate one using:
+      ```bash
+      openssl rand -hex 32
+      ```
+    </Warning>
+  </Step>
+
+  <Step title="Start the Server">
+    Launch the FastAPI development server:
+
+    ```bash
+    uvicorn app.src.main:app --reload --host 0.0.0.0 --port 8000
+    ```
+
+    The server will start at `http://localhost:8000`
+
+    <Tip>
+      The `--reload` flag enables auto-reload on code changes during development.
+    </Tip>
+  </Step>
+
+  <Step title="Verify Installation">
+    Open your browser and navigate to:
+
+    **Interactive API Docs:** [http://localhost:8000/api/v1/docs](http://localhost:8000/api/v1/docs)
+
+    You should see the Swagger UI with all available endpoints.
+  </Step>
+</Steps>
+
+## Making Your First API Calls
+
+The Factus API uses a **dual authentication system**. You need:
+1. A **local JWT token** (from `/api/v1/auth/login`)
+2. A **Factus access token** (from `/api/v1/auth/factus/login`)
+
+Let's walk through the complete workflow:
+
+### Step 1: Local Authentication
+
+First, obtain a local JWT token using the mock credentials:
+
+```bash
+curl -X POST "http://localhost:8000/api/v1/auth/login" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "username=admin&password=admin123"
+```
+
+**Response:**
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "token_type": "bearer"
+}
+```
+
+<Info>
+  Save the `access_token` value - you'll need it for all subsequent requests.
+</Info>
+
+### Step 2: Factus Authentication
+
+Next, authenticate with Factus to get a Factus access token:
+
+```bash
+curl -X POST "http://localhost:8000/api/v1/auth/factus/login" \
+  -H "Authorization: Bearer YOUR_LOCAL_JWT" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "sandbox@factus.com.co",
+    "password": "sandbox2024%"
+  }'
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Autenticación exitosa",
+  "data": {
+    "access_token": "factus_access_token_here",
+    "refresh_token": "factus_refresh_token_here",
+    "expires_in": 3600,
+    "token_type": "Bearer"
+  },
+  "errors": null
+}
+```
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+  Save both the `access_token` and `refresh_token` from the response. The access token expires after 1 hour.
 </Note>
+
+### Step 3: Create Your First Invoice
+
+Now you can create an invoice using both tokens:
+
+```bash
+curl -X POST "http://localhost:8000/api/v1/invoices/" \
+  -H "Authorization: Bearer YOUR_LOCAL_JWT" \
+  -H "X-Factus-Token: YOUR_FACTUS_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "numbering_range_id": 8,
+    "document": "01",
+    "reference_code": "REF-2024-001",
+    "observation": "Factura de prueba",
+    "payment_method_code": "10",
+    "payment_form": "1",
+    "customer": {
+      "identification_document_id": 3,
+      "identification": "1234567890",
+      "names": "Juan Pérez",
+      "email": "juan.perez@example.com",
+      "phone": "3001234567",
+      "address": "Calle 123 #45-67",
+      "municipality_id": 1,
+      "legal_organization_id": 1,
+      "tribute_id": 1
+    },
+    "items": [
+      {
+        "code_reference": "PROD-001",
+        "name": "Producto de Ejemplo",
+        "quantity": 2,
+        "price": 100000.00,
+        "discount_rate": 0.00,
+        "tax_rate": 19.00,
+        "unit_measure_id": 1,
+        "standard_code_id": 1,
+        "is_excluded": 0,
+        "tribute_id": 1
+      }
+    ]
+  }'
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Factura creada exitosamente",
+  "data": {
+    "number": "SETP1",
+    "prefix": "SETP",
+    "cufe": "abc123def456...",
+    "qr_url": "https://catalogo-vpfe.dian.gov.co/Document/FindDocument?documentKey=abc123...",
+    "status": "success",
+    "message": "Factura validada por DIAN"
+  },
+  "errors": null
+}
+```
+
+<Tip>
+  The `reference_code` must be unique for each invoice. Use a timestamp or UUID to ensure uniqueness.
+</Tip>
+
+### Step 4: Download Invoice Documents
+
+Retrieve the invoice PDF or XML using the invoice number from the previous response:
+
+<CodeGroup>
+```bash PDF
+curl -X GET "http://localhost:8000/api/v1/invoices/SETP1/pdf" \
+  -H "Authorization: Bearer YOUR_LOCAL_JWT" \
+  -H "X-Factus-Token: YOUR_FACTUS_ACCESS_TOKEN"
+```
+
+```bash XML
+curl -X GET "http://localhost:8000/api/v1/invoices/SETP1/xml" \
+  -H "Authorization: Bearer YOUR_LOCAL_JWT" \
+  -H "X-Factus-Token: YOUR_FACTUS_ACCESS_TOKEN"
+```
+</CodeGroup>
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "PDF obtenido exitosamente",
+  "data": {
+    "file_name": "SETP1.pdf",
+    "file_content": "JVBERi0xLjQKJeLjz9MKMy...",
+    "extension": "pdf"
+  },
+  "errors": null
+}
+```
+
+<Info>
+  The `file_content` is base64-encoded. Decode it to save the actual file.
+</Info>
+
+## Sandbox Credentials
+
+Use these credentials to test the API without a production Factus account:
+
+| Field | Value |
+|-------|-------|
+| **Base URL** | `https://api-sandbox.factus.com.co` |
+| **Email** | `sandbox@factus.com.co` |
+| **Password** | `sandbox2024%` |
+| **Numbering Range ID** | `8` (prefix `SETP`) |
+
+**Local Mock User:**
+- Username: `admin`
+- Password: `admin123`
+
+<Warning>
+  Sandbox credentials are for testing only. Never use them in production environments.
+</Warning>
+
+## Common Operations
+
+### Refresh Factus Token
+
+Factus access tokens expire after 1 hour. Use the refresh token to get a new access token:
+
+```bash
+curl -X POST "http://localhost:8000/api/v1/auth/factus/refresh" \
+  -H "Authorization: Bearer YOUR_LOCAL_JWT" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "refresh_token": "YOUR_FACTUS_REFRESH_TOKEN"
+  }'
+```
+
+### Get Invoice Details
+
+Retrieve full invoice information:
+
+```bash
+curl -X GET "http://localhost:8000/api/v1/invoices/SETP1" \
+  -H "Authorization: Bearer YOUR_LOCAL_JWT" \
+  -H "X-Factus-Token: YOUR_FACTUS_ACCESS_TOKEN"
+```
+
+### Send Invoice by Email
+
+Email the invoice to a customer:
+
+```bash
+curl -X POST "http://localhost:8000/api/v1/invoices/SETP1/send-email" \
+  -H "Authorization: Bearer YOUR_LOCAL_JWT" \
+  -H "X-Factus-Token: YOUR_FACTUS_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "customer@example.com"
+  }'
+```
+
+### Query Invoice Events (RADIAN)
+
+Get the event history for an invoice:
+
+```bash
+curl -X GET "http://localhost:8000/api/v1/invoices/SETP1/events" \
+  -H "Authorization: Bearer YOUR_LOCAL_JWT" \
+  -H "X-Factus-Token: YOUR_FACTUS_ACCESS_TOKEN"
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="API Reference" icon="book" href="/api-reference/auth/local-login">
+    Explore all endpoints and request schemas
+  </Card>
+  <Card title="Authentication Guide" icon="shield" href="/guides/authentication">
+    Deep dive into the authentication system
+  </Card>
+  <Card title="Invoice Guide" icon="file-invoice" href="/guides/creating-invoices">
+    Learn about invoice creation and management
+  </Card>
+  <Card title="Reference Data" icon="database" href="/api-reference/lookups/municipalities">
+    Understand municipalities, taxes, and units
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+### Server won't start
+- Verify Python 3.12+ is installed: `python --version`
+- Ensure all dependencies are installed: `pip install -r requirements.txt`
+- Check that port 8000 is not in use by another application
+
+### Authentication fails
+- Verify your `.env` file has the correct Factus credentials
+- Ensure you're using the correct sandbox credentials
+- Check that both tokens are included in protected endpoint requests
+
+### Invoice creation fails
+- Verify `numbering_range_id` is valid (use `/api/v1/lookups/numbering-ranges`)
+- Ensure `reference_code` is unique
+- Validate all required fields are present in the request body
+- Check that decimal values have maximum 2 decimal places
+
+<Tip>
+  Enable detailed logging by checking the console output when running with `--reload`. All errors are logged with detailed messages.
+</Tip>

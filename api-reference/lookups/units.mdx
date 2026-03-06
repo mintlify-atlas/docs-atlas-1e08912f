@@ -1,0 +1,128 @@
+---
+title: "Get Units of Measure"
+api: "GET /api/v1/lookups/units"
+description: "Retrieve a list of available units of measure for products"
+---
+
+## Overview
+
+This endpoint returns a list of standard units of measure that can be used when defining products in electronic invoices. Each unit includes its identifier, name, and official code.
+
+## Authentication
+
+This endpoint requires both Bearer token authentication and a Factus API token.
+
+<ParamField header="Authorization" type="string" required>
+  Bearer token for API authentication
+  
+  Format: `Bearer <your_access_token>`
+</ParamField>
+
+<ParamField header="X-Factus-Token" type="string" required>
+  Your Factus API token for accessing the e-invoicing platform
+</ParamField>
+
+## Response
+
+Returns a standardized API response containing an array of unit objects.
+
+<ResponseField name="success" type="boolean">
+  Indicates if the request was successful
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Human-readable message about the operation result
+</ResponseField>
+
+<ResponseField name="data" type="array">
+  Array of unit of measure objects
+  
+  <ResponseField name="id" type="integer">
+    Unique identifier for the unit
+  </ResponseField>
+  
+  <ResponseField name="name" type="string">
+    Name of the unit of measure
+  </ResponseField>
+  
+  <ResponseField name="code" type="string">
+    Official unit code (typically following UN/CEFACT standards)
+  </ResponseField>
+</ResponseField>
+
+<ResponseField name="errors" type="any" default="null">
+  Error details if the request failed
+</ResponseField>
+
+## Example Request
+
+```bash cURL
+curl --request GET \
+  --url https://api.yourapp.com/api/v1/lookups/units \
+  --header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' \
+  --header 'X-Factus-Token: your_factus_token_here'
+```
+
+## Example Response
+
+```json 200 - Success
+{
+  "success": true,
+  "message": "Unidades obtenidas exitosamente",
+  "data": [
+    {
+      "id": 1,
+      "name": "Unidad",
+      "code": "94"
+    },
+    {
+      "id": 2,
+      "name": "Kilogramo",
+      "code": "KGM"
+    },
+    {
+      "id": 3,
+      "name": "Metro",
+      "code": "MTR"
+    },
+    {
+      "id": 4,
+      "name": "Litro",
+      "code": "LTR"
+    },
+    {
+      "id": 5,
+      "name": "Caja",
+      "code": "BX"
+    },
+    {
+      "id": 6,
+      "name": "Hora",
+      "code": "HUR"
+    }
+  ],
+  "errors": null
+}
+```
+
+```json 400 - Bad Request
+{
+  "detail": "Error al obtener datos de Factus: Invalid token"
+}
+```
+
+```json 401 - Unauthorized
+{
+  "detail": "Not authenticated"
+}
+```
+
+## Error Responses
+
+<ResponseField name="400" type="Bad Request">
+  Invalid request or error communicating with Factus API. Check the `detail` field for specific error information.
+</ResponseField>
+
+<ResponseField name="401" type="Unauthorized">
+  Missing or invalid authentication credentials. Ensure both Authorization header and X-Factus-Token are provided.
+</ResponseField>

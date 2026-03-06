@@ -1,0 +1,145 @@
+---
+title: Introduction
+description: Welcome to the Factus API - A secure intermediary for Colombian e-invoicing
+---
+
+## What is Factus API?
+
+Factus API is a REST API built with FastAPI that acts as a secure intermediary for the [Factus](https://factus.com.co) Colombian e-invoicing platform. It provides authenticated endpoints for creating, querying, downloading, and managing electronic invoices validated by the DIAN (Dirección de Impuestos y Aduanas Nacionales).
+
+The API simplifies the integration process by handling OAuth2 authentication, token lifecycle management, and providing a standardized response format for all operations.
+
+## What is DIAN and Electronic Invoicing?
+
+**DIAN** (Dirección de Impuestos y Aduanas Nacionales) is Colombia's tax and customs authority that requires businesses to issue electronic invoices for tax compliance. Factus is a certified platform that validates these invoices with DIAN.
+
+This API enables developers to:
+- Generate DIAN-compliant electronic invoices
+- Validate invoices through Factus
+- Retrieve invoice documents (PDF/XML)
+- Track invoice events through RADIAN
+- Send validated invoices by email
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Get up and running in minutes with our step-by-step guide
+  </Card>
+  <Card title="API Reference" icon="code" href="/api-reference/auth/local-login">
+    Explore all available endpoints and request formats
+  </Card>
+  <Card title="Architecture" icon="sitemap" href="/architecture/overview">
+    Learn about the clean architecture design
+  </Card>
+  <Card title="Authentication" icon="lock" href="/guides/authentication">
+    Understand the dual authentication system
+  </Card>
+</CardGroup>
+
+## Key Features
+
+### Authentication & Security
+- **JWT-based local authentication** - Secure your API with local user tokens
+- **Factus OAuth2 integration** - Complete token lifecycle management (login + refresh)
+- **Dual-layer protection** - All invoice operations require both local JWT and Factus tokens
+
+### Invoice Management
+- **Create invoices** - Generate and validate electronic invoices with DIAN
+- **Download documents** - Retrieve PDF and XML versions (base64-encoded)
+- **Email delivery** - Send validated invoices directly to customers
+- **Event tracking** - Query invoice history through RADIAN
+- **Delete unvalidated invoices** - Remove draft invoices before submission
+
+### Reference Data
+- **Municipalities** - Colombian municipalities for address validation
+- **Tax types** - Product tax classifications
+- **Units of measure** - Standard units for invoice items
+- **Numbering ranges** - Available invoice numbering sequences
+
+### Developer Experience
+- **Standardized responses** - All endpoints return consistent `ApiResponse[T]` envelopes
+- **Interactive documentation** - Auto-generated Swagger UI at `/api/v1/docs`
+- **Type-safe models** - Full Pydantic validation for all requests/responses
+- **Async/await** - Built on modern async Python for optimal performance
+
+## Architecture Overview
+
+Factus API follows a **ports-and-adapters** (hexagonal) architecture with domain-driven design principles:
+
+```
+app/src/
+├── main.py                      # FastAPI app factory
+├── api/
+│   ├── deps.py                  # Shared dependencies (auth)
+│   └── v1/
+│       └── endpoints/
+│           ├── auth.py          # Local + Factus auth
+│           ├── invoices.py      # Invoice CRUD
+│           └── lookups.py       # Reference data
+├── core/
+│   ├── config.py                # Settings (pydantic-settings)
+│   ├── responses.py             # ApiResponse[T] wrapper
+│   └── security.py              # JWT + password hashing
+├── domain/
+│   ├── models/                  # Pydantic domain models
+│   └── interfaces/              # Abstract gateway contracts
+└── infrastructure/
+    └── gateways/                # Factus HTTP implementations
+```
+
+### Design Principles
+
+<Note>
+  The architecture separates concerns by having endpoints depend only on abstract interfaces. Concrete Factus HTTP gateways are injected via FastAPI's `Depends()` mechanism, making the system testable and adaptable.
+</Note>
+
+- **Domain layer** - Pure business logic and data models
+- **Application layer** - API endpoints and request/response handling
+- **Infrastructure layer** - External service integrations (Factus HTTP client)
+- **Dependency injection** - Loose coupling through FastAPI's DI system
+
+## Technology Stack
+
+- **FastAPI** - Modern async web framework
+- **Pydantic** - Data validation and settings management
+- **httpx** - Async HTTP client for Factus integration
+- **JWT** - Token-based authentication
+- **Python 3.12+** - Latest Python features
+
+## Response Format
+
+All API endpoints (except local login) return a standardized envelope:
+
+```json
+{
+  "success": true,
+  "message": "Factura creada exitosamente",
+  "data": { ... },
+  "errors": null
+}
+```
+
+On error:
+
+```json
+{
+  "detail": "Error al crear la factura: El campo id rango de numeración es inválido."
+}
+```
+
+## Next Steps
+
+<Steps>
+  <Step title="Quick Start">
+    Follow our [quickstart guide](/quickstart) to set up the API and make your first request
+  </Step>
+  <Step title="Explore Endpoints">
+    Browse the [API reference](/api-reference) to understand all available operations
+  </Step>
+  <Step title="Integration">
+    Learn about [authentication flows](/api-reference/auth) and [invoice creation](/api-reference/invoices)
+  </Step>
+</Steps>
+
+<Tip>
+  Use the sandbox environment to test your integration without affecting production data. See [sandbox credentials](/quickstart#sandbox-credentials) in the quickstart guide.
+</Tip>

@@ -1,0 +1,269 @@
+---
+title: 'Architecture Overview'
+description: 'High-level overview of the Factus API project structure and design decisions'
+icon: 'building'
+---
+
+## Project Overview
+
+Factus API is a FastAPI-based REST API for interacting with the Factus Colombian e-invoicing system. The project follows **clean architecture principles** with domain-driven design patterns to ensure maintainability, testability, and separation of concerns.
+
+## Technology Stack
+
+The project is built with modern Python technologies:
+
+<CardGroup cols={2}>
+  <Card title="FastAPI" icon="bolt">
+    High-performance async web framework with automatic OpenAPI documentation
+  </Card>
+  <Card title="httpx" icon="globe">
+    Modern async HTTP client for external API communication
+  </Card>
+  <Card title="Pydantic" icon="check-circle">
+    Data validation and settings management using Python type annotations
+  </Card>
+  <Card title="python-jose" icon="key">
+    JWT token handling for authentication and authorization
+  </Card>
+</CardGroup>
+
+### Core Dependencies
+
+```txt requirements.txt
+fastapi[standard]
+httpx
+pydantic-settings
+pydantic[email]
+python-jose[cryptography]
+passlib[bcrypt]
+pytest
+pytest-asyncio
+```
+
+## Project Structure
+
+The codebase is organized into clear layers following clean architecture principles:
+
+```
+app/src/
+├── main.py                 # FastAPI app factory and initialization
+├── api/
+│   ├── v1/
+│   │   ├── endpoints/      # Route handlers (HTTP layer)
+│   │   └── schemas/        # Pydantic request/response models
+│   └── deps.py             # Dependency injection configuration
+├── core/
+│   ├── config.py           # Settings management (pydantic-settings)
+│   ├── security.py         # Password hashing, JWT utilities
+│   └── responses.py        # Custom response models
+├── domain/
+│   ├── models/             # Domain entities (business logic)
+│   └── interfaces/         # Abstract interfaces (ports)
+└── infrastructure/
+    ├── gateways/           # External API implementations (adapters)
+    ├── repositories/       # Database implementations
+    └── db/                 # Database connection setup
+```
+
+### Layer Responsibilities
+
+<AccordionGroup>
+  <Accordion title="API Layer (api/)">
+    Handles HTTP requests and responses. Contains FastAPI route handlers, request/response schemas, and dependency injection setup.
+    
+    - **endpoints/**: FastAPI router definitions
+    - **schemas/**: Pydantic models for API validation
+    - **deps.py**: Shared dependencies like authentication
+  </Accordion>
+
+  <Accordion title="Core Layer (core/)">
+    Provides cross-cutting concerns and shared utilities used throughout the application.
+    
+    - **config.py**: Environment-based configuration
+    - **security.py**: Authentication and cryptography
+    - **responses.py**: Standardized API responses
+  </Accordion>
+
+  <Accordion title="Domain Layer (domain/)">
+    Contains business logic and domain models. **No framework dependencies** - pure Python.
+    
+    - **models/**: Domain entities (Invoice, AuthToken, etc.)
+    - **interfaces/**: Abstract base classes defining contracts (ports)
+  </Accordion>
+
+  <Accordion title="Infrastructure Layer (infrastructure/)">
+    Implements external integrations and data persistence.
+    
+    - **gateways/**: Factus API client implementations
+    - **repositories/**: Database access patterns
+    - **db/**: Database connection management
+  </Accordion>
+</AccordionGroup>
+
+## Key Design Decisions
+
+### 1. Clean Architecture
+
+The project strictly separates business logic from infrastructure concerns. Domain models have **zero dependencies** on FastAPI, httpx, or any external libraries.
+
+<CodeGroup>
+```python app/src/domain/models/auth_token.py
+from pydantic import BaseModel
+
+class AuthToken(BaseModel):
+    access_token: str
+    token_type: str
+    expires_in: int
+    refresh_token: str | None = None
+```
+
+```python app/src/domain/interfaces/auth_gateway.py
+from abc import ABC, abstractmethod
+from app.src.domain.models.auth_token import AuthToken
+
+class IAuthGateway(ABC):
+    @abstractmethod
+    async def authenticate(self, email: str, password: str) -> AuthToken:
+        """Authenticates with the external API."""
+        pass
+
+    @abstractmethod
+    async def refresh_token(self, refresh_token: str) -> AuthToken:
+        """Refreshes the access token."""
+        pass
+```
+</CodeGroup>
+
+### 2. Async-First Architecture
+
+All I/O operations use Python's `async`/`await` pattern for maximum concurrency and performance:
+
+- FastAPI route handlers are `async def`
+- HTTP requests use `httpx.AsyncClient`
+- Gateway methods are asynchronous
+- Database operations support async (when implemented)
+
+### 3. Type Safety
+
+The codebase uses **strict type annotations** throughout:
+
+```python
+# All functions have type hints
+async def fetch_data(url: str, timeout: int = 30) -> Optional[dict]:
+    ...
+
+# Pydantic models provide runtime validation
+class UserCreate(BaseModel):
+    username: str = Field(..., min_length=3, max_length=50)
+    email: EmailStr
+    password: str = Field(..., min_length=8)
+```
+
+### 4. Dependency Injection
+
+FastAPI's dependency injection system decouples components and enables easy testing:
+
+```python app/src/api/deps.py
+from app.src.infrastructure.gateways.factus_auth_gateway import FactusAuthGateway
+from app.src.core.config import settings
+
+def get_auth_gateway() -> FactusAuthGateway:
+    return FactusAuthGateway(
+        base_url=settings.FACTUS_BASE_URL,
+        client_id=settings.FACTUS_CLIENT_ID,
+        client_secret=settings.FACTUS_CLIENT_SECRET
+    )
+```
+
+### 5. Environment-Based Configuration
+
+All configuration is managed through environment variables using `pydantic-settings`:
+
+```python app/src/core/config.py
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env")
+
+    PROJECT_NAME: str = "Factus API"
+    VERSION: str = "1.0.0"
+    API_V1_STR: str = "/api/v1"
+    
+    FACTUS_BASE_URL: str 
+    FACTUS_CLIENT_ID: str 
+    FACTUS_CLIENT_SECRET: str 
+    
+    SECRET_KEY: str
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+
+settings = Settings()
+```
+
+## Application Initialization
+
+The FastAPI application is created using a factory pattern:
+
+```python app/src/main.py
+import logging
+from fastapi import FastAPI
+from app.src.api.v1 import router as api_v1_router
+from app.src.core.config import settings
+
+logging.basicConfig(level=logging.INFO)
+
+def create_app() -> FastAPI:
+    app = FastAPI(
+        title=settings.PROJECT_NAME,
+        version=settings.VERSION,
+        openapi_url=f"{settings.API_V1_STR}/openapi.json",
+    )
+
+    app.include_router(api_v1_router, prefix=settings.API_V1_STR)
+
+    @app.get("/")
+    async def root():
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url=f"{settings.API_V1_STR}/docs")
+
+    return app
+
+app = create_app()
+```
+
+<Info>
+The root path `/` automatically redirects to the interactive API documentation at `/api/v1/docs`.
+</Info>
+
+## Running the Application
+
+<CodeGroup>
+```bash Development Server
+# With auto-reload
+uvicorn app.src.main:app --reload --host 0.0.0.0 --port 8000
+
+# Or using FastAPI CLI
+fastapi dev app/src/main.py
+```
+
+```bash Production
+uvicorn app.src.main:app --host 0.0.0.0 --port 8000
+```
+</CodeGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Clean Architecture" icon="diagram-project" href="/architecture/clean-architecture">
+    Learn about the ports and adapters pattern implementation
+  </Card>
+  <Card title="Configuration" icon="gear" href="/architecture/configuration">
+    Understand environment variables and settings management
+  </Card>
+  <Card title="Authentication API" icon="book" href="/api-reference/auth/local-login">
+    Explore the complete API documentation
+  </Card>
+  <Card title="Quickstart Guide" icon="code" href="/quickstart">
+    Set up your development environment
+  </Card>
+</CardGroup>

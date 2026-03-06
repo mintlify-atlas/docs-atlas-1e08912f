@@ -1,0 +1,74 @@
+---
+title: "Delete Invoice"
+api: "DELETE /api/v1/invoices/reference/{reference_code}"
+description: "Delete an invoice by its reference code"
+---
+
+## Headers
+
+<ParamField header="Authorization" type="string" required>
+  Bearer token for authentication: `Bearer <local_jwt>`
+</ParamField>
+
+<ParamField header="X-Factus-Token" type="string" required>
+  Factus access token obtained from authentication
+</ParamField>
+
+## Path Parameters
+
+<ParamField path="reference_code" type="string" required>
+  The reference code of the invoice to delete
+</ParamField>
+
+## Response
+
+<ResponseField name="message" type="string">
+  Success message
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Delete response
+  <Expandable title="Data properties">
+    <ResponseField name="status" type="string">
+      Response status
+    </ResponseField>
+    
+    <ResponseField name="message" type="string">
+      Detailed status message
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<RequestExample>
+```bash cURL
+curl -X DELETE https://api.yourapp.com/api/v1/invoices/reference/INV-2024-001 \
+  -H "Authorization: Bearer <local_jwt>" \
+  -H "X-Factus-Token: <factus_access_token>"
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200
+{
+  "message": "Factura eliminada exitosamente",
+  "data": {
+    "status": "success",
+    "message": "Invoice deleted successfully"
+  }
+}
+```
+
+```json 400
+{
+  "detail": "Error al eliminar la factura: Invoice not found or already deleted"
+}
+```
+</ResponseExample>
+
+## Important Notes
+
+- This endpoint uses the **reference_code** (not the invoice number) to delete an invoice
+- The reference_code is the unique identifier you provided when creating the invoice
+- Deleting an invoice is irreversible - make sure you want to proceed before calling this endpoint
+- Some invoices may not be deletable depending on their status or if they have been submitted to tax authorities
+- Always verify the reference_code before deletion to avoid removing the wrong invoice

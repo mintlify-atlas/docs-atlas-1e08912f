@@ -1,0 +1,668 @@
+---
+title: Creating Invoices
+description: Complete guide to creating electronic invoices with the Factus API
+---
+
+This guide walks you through the process of creating electronic invoices using the Factus API. You'll learn about invoice structure, required fields, validation rules, and best practices.
+
+## Prerequisites
+
+Before creating invoices, ensure you have:
+
+- ✅ Local JWT token (from `/api/v1/auth/login`)
+- ✅ Factus access token (from `/api/v1/auth/factus/login`)
+- ✅ Valid customer information
+- ✅ At least one invoice item
+
+See the [Authentication Guide](/guides/authentication) for token setup.
+
+## Invoice Structure
+
+An invoice consists of three main components:
+
+1. **Invoice Metadata**: Document type, reference code, payment details
+2. **Customer Information**: Buyer details and tax information
+3. **Items**: Products or services being invoiced
+
+## Creating Your First Invoice
+
+<Steps>
+  <Step title="Prepare Customer Data">
+    Define the customer (buyer) information:
+
+    ```json
+    {
+      "identification_document_id": 6,
+      "identification": "900123456",
+      "dv": "7",
+      "company": "Empresa Ejemplo S.A.S.",
+      "trade_name": "Ejemplo",
+      "address": "Calle 123 #45-67",
+      "email": "facturacion@ejemplo.com",
+      "phone": "3001234567",
+      "municipality_id": 11001,
+      "legal_organization_id": 1,
+      "tribute_id": 1
+    }
+    ```
+
+    <Info>
+    For companies (legal entities), provide `company` and `trade_name`. For natural persons, use `names` instead.
+    </Info>
+  </Step>
+
+  <Step title="Add Invoice Items">
+    Define at least one item (product or service):
+
+    ```json
+    [
+      {
+        "code_reference": "PROD-001",
+        "name": "Servicio de Consultoría",
+        "quantity": 10,
+        "price": 50000.00,
+        "discount_rate": 0.00,
+        "tax_rate": 19.00,
+        "unit_measure_id": 70,
+        "standard_code_id": 999,
+        "is_excluded": 0,
+        "tribute_id": 1
+      }
+    ]
+    ```
+
+    <Warning>
+    All decimal values (price, discount_rate, tax_rate) must have a maximum of 2 decimal places.
+    </Warning>
+  </Step>
+
+  <Step title="Set Payment Information">
+    Configure payment method and terms:
+
+    ```json
+    {
+      "payment_method_code": "10",
+      "payment_form": "1",
+      "payment_due_date": null
+    }
+    ```
+
+    **Payment Form Options:**
+    - `"1"`: Cash (Contado) - No due date required
+    - `"2"`: Credit (Crédito) - `payment_due_date` is **required**
+
+    **Common Payment Method Codes:**
+    - `"10"`: Cash (Efectivo)
+    - `"42"`: Bank transfer
+    - `"48"`: Credit card
+  </Step>
+
+  <Step title="Submit the Invoice">
+    Send the complete invoice to the API:
+
+    ```bash
+    curl -X POST "http://localhost:8000/api/v1/invoices" \
+      -H "Authorization: Bearer YOUR_LOCAL_JWT_TOKEN" \
+      -H "X-Factus-Token: YOUR_FACTUS_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d @complete-invoice.json
+    ```
+
+    **Success Response:**
+    ```json
+    {
+      "success": true,
+      "message": "Factura creada exitosamente",
+      "data": {
+        "number": "SETP990000123",
+        "prefix": "SETP",
+        "cufe": "abc123def456...",
+        "qr_url": "https://catalogo-vpfe.dian.gov.co/Document/FindDocument?documentKey=abc123...",
+        "status": "success",
+        "message": null
+      }
+    }
+    ```
+  </Step>
+</Steps>
+
+## Complete Invoice Example
+
+Here's a full invoice payload with all required fields:
+
+```json
+{
+  "reference_code": "INV-2026-0001",
+  "observation": "Pago por servicios de consultoría del mes de marzo",
+  "payment_method_code": "10",
+  "payment_form": "1",
+  "customer": {
+    "identification_document_id": 6,
+    "identification": "900123456",
+    "dv": "7",
+    "company": "Empresa Ejemplo S.A.S.",
+    "trade_name": "Ejemplo",
+    "address": "Calle 123 #45-67",
+    "email": "facturacion@ejemplo.com",
+    "phone": "3001234567",
+    "municipality_id": 11001,
+    "legal_organization_id": 1,
+    "tribute_id": 1
+  },
+  "items": [
+    {
+      "code_reference": "SERV-001",
+      "name": "Consultoría Técnica",
+      "quantity": 10,
+      "price": 50000.00,
+      "discount_rate": 5.00,
+      "tax_rate": 19.00,
+      "unit_measure_id": 70,
+      "standard_code_id": 999,
+      "is_excluded": 0,
+      "tribute_id": 1
+    },
+    {
+      "code_reference": "PROD-002",
+      "name": "Licencia Software Anual",
+      "quantity": 1,
+      "price": 1200000.00,
+      "discount_rate": 0.00,
+      "tax_rate": 19.00,
+      "unit_measure_id": 94,
+      "standard_code_id": 999,
+      "is_excluded": 0,
+      "tribute_id": 1
+    }
+  ]
+}
+```
+
+## Field Reference
+
+### Invoice Metadata
+
+<ParamField path="reference_code" type="string" required>
+  Your internal reference code for the invoice. Must be unique.
+</ParamField>
+
+<ParamField path="observation" type="string">
+  Optional notes or observations. Maximum 250 characters.
+</ParamField>
+
+<ParamField path="document" type="string" default="01">
+  Document type code. Default is `"01"` for sales invoice.
+</ParamField>
+
+<ParamField path="numbering_range_id" type="integer">
+  Optional. Factus numbering range identifier.
+</ParamField>
+
+<ParamField path="payment_method_code" type="string" default="10">
+  Payment method code (e.g., `"10"` for cash).
+</ParamField>
+
+<ParamField path="payment_form" type="string" default="1">
+  Payment form: `"1"` for cash, `"2"` for credit.
+</ParamField>
+
+<ParamField path="payment_due_date" type="date">
+  Required when `payment_form` is `"2"` (credit). Format: `YYYY-MM-DD`.
+</ParamField>
+
+### Customer Fields
+
+<ParamField path="customer.identification_document_id" type="integer" required>
+  Type of identification document:
+  - `6`: NIT (Tax ID for companies)
+  - `13`: Cédula de ciudadanía (National ID)
+  - `31`: NIT for foreign companies
+</ParamField>
+
+<ParamField path="customer.identification" type="string" required>
+  Identification number without verification digit.
+</ParamField>
+
+<ParamField path="customer.dv" type="string">
+  Verification digit. **Required** when `identification_document_id` is `6` (NIT).
+</ParamField>
+
+<ParamField path="customer.company" type="string">
+  Company name for legal entities. Cannot be empty if provided.
+</ParamField>
+
+<ParamField path="customer.names" type="string">
+  Full name for natural persons. Required if `company` is not provided.
+</ParamField>
+
+<ParamField path="customer.email" type="string">
+  Customer's email address. Must be a valid email format.
+</ParamField>
+
+<ParamField path="customer.municipality_id" type="integer">
+  Municipality code (e.g., `11001` for Bogotá).
+</ParamField>
+
+<ParamField path="customer.legal_organization_id" type="integer" required>
+  Legal organization type identifier.
+</ParamField>
+
+<ParamField path="customer.tribute_id" type="integer" required>
+  Tax regime identifier.
+</ParamField>
+
+### Item Fields
+
+<ParamField path="items[].code_reference" type="string" required>
+  Your internal product/service code.
+</ParamField>
+
+<ParamField path="items[].name" type="string" required>
+  Product or service name.
+</ParamField>
+
+<ParamField path="items[].quantity" type="integer" required>
+  Quantity. Must be greater than 0.
+</ParamField>
+
+<ParamField path="items[].price" type="decimal" required>
+  Unit price. Must be greater than 0. Maximum 2 decimal places.
+</ParamField>
+
+<ParamField path="items[].discount_rate" type="decimal" default="0.00">
+  Discount percentage. Must be >= 0. Maximum 2 decimal places.
+</ParamField>
+
+<ParamField path="items[].tax_rate" type="decimal" required>
+  Tax rate (e.g., `19.00` for 19% IVA). Maximum 2 decimal places.
+</ParamField>
+
+<ParamField path="items[].unit_measure_id" type="integer" required>
+  Unit of measure code:
+  - `70`: Generic unit
+  - `94`: Services
+  - Other codes per DIAN standards
+</ParamField>
+
+<ParamField path="items[].standard_code_id" type="integer" required>
+  Product classification code. Use `999` for generic/other.
+</ParamField>
+
+<ParamField path="items[].is_excluded" type="integer" required>
+  Tax exclusion flag: `0` (not excluded) or `1` (excluded).
+</ParamField>
+
+<ParamField path="items[].tribute_id" type="integer" required>
+  Tribute/tax type identifier.
+</ParamField>
+
+## Advanced Features
+
+### Credit Invoices
+
+For invoices with credit payment terms:
+
+```json
+{
+  "payment_form": "2",
+  "payment_due_date": "2026-04-30",
+  "payment_method_code": "42"
+}
+```
+
+<Warning>
+When `payment_form` is `"2"`, the `payment_due_date` field is **mandatory**. The API will reject the invoice if this field is missing.
+</Warning>
+
+### Item Discounts
+
+Apply percentage discounts to individual items:
+
+```json
+{
+  "code_reference": "PROD-001",
+  "name": "Product with Discount",
+  "quantity": 5,
+  "price": 100000.00,
+  "discount_rate": 10.00,
+  "tax_rate": 19.00
+}
+```
+
+The final price will be calculated as: `price * quantity * (1 - discount_rate/100) * (1 + tax_rate/100)`
+
+### Withholding Taxes
+
+Add withholding taxes to items:
+
+```json
+{
+  "code_reference": "SERV-001",
+  "name": "Professional Services",
+  "quantity": 1,
+  "price": 5000000.00,
+  "tax_rate": 19.00,
+  "withholding_taxes": [
+    {
+      "code": "01",
+      "withholding_tax_rate": 11.00
+    }
+  ]
+}
+```
+
+### Order References
+
+Link invoices to purchase orders:
+
+```json
+{
+  "reference_code": "INV-2026-0001",
+  "order_reference": {
+    "reference_code": "PO-12345",
+    "issue_date": "2026-03-01"
+  },
+  "customer": { ... },
+  "items": [ ... ]
+}
+```
+
+## Validation Rules
+
+The API performs the following validations:
+
+<Accordion title="Invoice Level Validations">
+  - At least one item is required
+  - `payment_due_date` is required when `payment_form` is `"2"`
+  - `reference_code` must be unique
+  - `observation` cannot exceed 250 characters
+</Accordion>
+
+<Accordion title="Customer Validations">
+  - Either `company` or `names` must be provided
+  - `company` cannot be an empty string if provided
+  - `dv` is required when `identification_document_id` is `6` (NIT)
+  - `email` must be a valid email format if provided
+</Accordion>
+
+<Accordion title="Item Validations">
+  - `quantity` must be greater than 0
+  - `price` must be greater than 0
+  - `discount_rate` must be >= 0
+  - `tax_rate` must be >= 0
+  - Decimal fields (`price`, `discount_rate`, `tax_rate`) must have maximum 2 decimal places
+</Accordion>
+
+## Code Examples
+
+### Python
+
+```python
+import httpx
+from decimal import Decimal
+from typing import List, Optional
+from datetime import date
+
+class InvoiceItem:
+    def __init__(
+        self,
+        code_reference: str,
+        name: str,
+        quantity: int,
+        price: Decimal,
+        tax_rate: Decimal,
+        discount_rate: Decimal = Decimal("0.00")
+    ):
+        self.code_reference = code_reference
+        self.name = name
+        self.quantity = quantity
+        self.price = price
+        self.tax_rate = tax_rate
+        self.discount_rate = discount_rate
+
+    def to_dict(self):
+        return {
+            "code_reference": self.code_reference,
+            "name": self.name,
+            "quantity": self.quantity,
+            "price": float(self.price),
+            "discount_rate": float(self.discount_rate),
+            "tax_rate": float(self.tax_rate),
+            "unit_measure_id": 70,
+            "standard_code_id": 999,
+            "is_excluded": 0,
+            "tribute_id": 1
+        }
+
+async def create_invoice(
+    base_url: str,
+    local_token: str,
+    factus_token: str,
+    reference_code: str,
+    customer: dict,
+    items: List[InvoiceItem],
+    payment_form: str = "1",
+    observation: Optional[str] = None
+):
+    invoice_data = {
+        "reference_code": reference_code,
+        "payment_method_code": "10",
+        "payment_form": payment_form,
+        "customer": customer,
+        "items": [item.to_dict() for item in items]
+    }
+    
+    if observation:
+        invoice_data["observation"] = observation
+    
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            f"{base_url}/api/v1/invoices",
+            headers={
+                "Authorization": f"Bearer {local_token}",
+                "X-Factus-Token": factus_token,
+                "Content-Type": "application/json"
+            },
+            json=invoice_data
+        )
+        response.raise_for_status()
+        return response.json()
+
+# Usage
+customer = {
+    "identification_document_id": 6,
+    "identification": "900123456",
+    "dv": "7",
+    "company": "Empresa Ejemplo S.A.S.",
+    "email": "facturacion@ejemplo.com",
+    "municipality_id": 11001,
+    "legal_organization_id": 1,
+    "tribute_id": 1
+}
+
+items = [
+    InvoiceItem(
+        code_reference="PROD-001",
+        name="Consultoría",
+        quantity=10,
+        price=Decimal("50000.00"),
+        tax_rate=Decimal("19.00")
+    )
+]
+
+result = await create_invoice(
+    base_url="http://localhost:8000",
+    local_token="your_jwt_token",
+    factus_token="your_factus_token",
+    reference_code="INV-2026-0001",
+    customer=customer,
+    items=items
+)
+
+print(f"Invoice created: {result['data']['number']}")
+```
+
+### JavaScript/TypeScript
+
+```typescript
+interface InvoiceItem {
+  code_reference: string;
+  name: string;
+  quantity: number;
+  price: number;
+  discount_rate?: number;
+  tax_rate: number;
+  unit_measure_id: number;
+  standard_code_id: number;
+  is_excluded: 0 | 1;
+  tribute_id: number;
+}
+
+interface Customer {
+  identification_document_id: number;
+  identification: string;
+  dv?: string;
+  company?: string;
+  names?: string;
+  email?: string;
+  municipality_id?: number;
+  legal_organization_id: number;
+  tribute_id: number;
+}
+
+async function createInvoice(
+  baseUrl: string,
+  localToken: string,
+  factusToken: string,
+  referenceCode: string,
+  customer: Customer,
+  items: InvoiceItem[],
+  paymentForm: '1' | '2' = '1',
+  observation?: string
+) {
+  const invoiceData = {
+    reference_code: referenceCode,
+    payment_method_code: '10',
+    payment_form: paymentForm,
+    customer,
+    items,
+    ...(observation && { observation })
+  };
+
+  const response = await fetch(`${baseUrl}/api/v1/invoices`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${localToken}`,
+      'X-Factus-Token': factusToken,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(invoiceData)
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Failed to create invoice');
+  }
+
+  return await response.json();
+}
+
+// Usage
+const customer: Customer = {
+  identification_document_id: 6,
+  identification: '900123456',
+  dv: '7',
+  company: 'Empresa Ejemplo S.A.S.',
+  email: 'facturacion@ejemplo.com',
+  municipality_id: 11001,
+  legal_organization_id: 1,
+  tribute_id: 1
+};
+
+const items: InvoiceItem[] = [
+  {
+    code_reference: 'PROD-001',
+    name: 'Consultoría',
+    quantity: 10,
+    price: 50000.00,
+    discount_rate: 0.00,
+    tax_rate: 19.00,
+    unit_measure_id: 70,
+    standard_code_id: 999,
+    is_excluded: 0,
+    tribute_id: 1
+  }
+];
+
+const result = await createInvoice(
+  'http://localhost:8000',
+  'your_jwt_token',
+  'your_factus_token',
+  'INV-2026-0001',
+  customer,
+  items
+);
+
+console.log(`Invoice created: ${result.data.number}`);
+```
+
+## Common Errors
+
+### Missing Required Fields
+
+```json
+{
+  "detail": [
+    {
+      "loc": ["body", "customer", "identification"],
+      "msg": "field required",
+      "type": "value_error.missing"
+    }
+  ]
+}
+```
+
+**Solution**: Ensure all required fields are included in your request.
+
+### Validation Errors
+
+```json
+{
+  "detail": [
+    {
+      "loc": ["body", "items", 0, "price"],
+      "msg": "price must have max 2 decimal places",
+      "type": "value_error"
+    }
+  ]
+}
+```
+
+**Solution**: Check decimal precision for price, discount_rate, and tax_rate fields.
+
+### Missing Payment Due Date
+
+```json
+{
+  "detail": [
+    {
+      "loc": ["body"],
+      "msg": "payment_due_date es obligatorio cuando payment_form es 2 (crédito)",
+      "type": "value_error"
+    }
+  ]
+}
+```
+
+**Solution**: Add `payment_due_date` when using credit payment form.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Download Documents" icon="download" href="/guides/downloading-documents">
+    Learn how to download PDF and XML files
+  </Card>
+  <Card title="Error Handling" icon="triangle-exclamation" href="/guides/error-handling">
+    Handle errors and troubleshoot issues
+  </Card>
+</CardGroup>

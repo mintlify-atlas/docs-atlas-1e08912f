@@ -1,0 +1,614 @@
+---
+title: Downloading Documents
+description: Learn how to download PDF and XML invoice documents from the Factus API
+---
+
+After creating an invoice, you can download the associated PDF and XML documents. The Factus API returns these documents as Base64-encoded strings, which you can decode and save to your filesystem.
+
+## Overview
+
+The API provides two endpoints for downloading invoice documents:
+
+- **PDF Download**: `/api/v1/invoices/{number}/pdf`
+- **XML Download**: `/api/v1/invoices/{number}/xml`
+
+Both endpoints require authentication and return Base64-encoded file content.
+
+## Prerequisites
+
+Before downloading documents, ensure you have:
+
+- ✅ Local JWT token (from `/api/v1/auth/login`)
+- ✅ Factus access token (from `/api/v1/auth/factus/login`)
+- ✅ Invoice number (returned from invoice creation)
+
+## Downloading PDF Documents
+
+<Steps>
+  <Step title="Get the Invoice Number">
+    When you create an invoice, the response includes a `number` field:
+
+    ```json
+    {
+      "success": true,
+      "message": "Factura creada exitosamente",
+      "data": {
+        "number": "SETP990000123",
+        "prefix": "SETP",
+        "cufe": "abc123...",
+        "qr_url": "https://..."
+      }
+    }
+    ```
+
+    Use this `number` value to download the PDF.
+  </Step>
+
+  <Step title="Request the PDF">
+    Make a GET request to the PDF endpoint:
+
+    ```bash
+    curl -X GET "http://localhost:8000/api/v1/invoices/SETP990000123/pdf" \
+      -H "Authorization: Bearer YOUR_LOCAL_JWT_TOKEN" \
+      -H "X-Factus-Token: YOUR_FACTUS_TOKEN"
+    ```
+
+    **Response:**
+    ```json
+    {
+      "success": true,
+      "message": "PDF obtenido exitosamente",
+      "data": {
+        "file_name": "SETP990000123.pdf",
+        "file_content": "JVBERi0xLjQKJeLjz9MKMyAwIG9iago8PC9UeXBlL...",
+        "extension": "pdf"
+      }
+    }
+    ```
+  </Step>
+
+  <Step title="Decode and Save the File">
+    The `file_content` field contains the Base64-encoded PDF. Decode it and save to a file.
+
+    See [Code Examples](#code-examples) below for implementation details.
+  </Step>
+</Steps>
+
+## Downloading XML Documents
+
+The process for downloading XML documents is identical to PDF downloads:
+
+```bash
+curl -X GET "http://localhost:8000/api/v1/invoices/SETP990000123/xml" \
+  -H "Authorization: Bearer YOUR_LOCAL_JWT_TOKEN" \
+  -H "X-Factus-Token: YOUR_FACTUS_TOKEN"
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "XML obtenido exitosamente",
+  "data": {
+    "file_name": "SETP990000123.xml",
+    "file_content": "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVR...",
+    "extension": "xml"
+  }
+}
+```
+
+## Understanding Base64 Encoding
+
+Base64 is a binary-to-text encoding scheme that represents binary data in an ASCII string format. The Factus API uses Base64 encoding to safely transmit PDF and XML files through JSON responses.
+
+<Info>
+Base64 encoding increases the file size by approximately 33%. A 100KB PDF will be roughly 133KB when Base64-encoded.
+</Info>
+
+### Why Base64?
+
+- **JSON Compatibility**: Binary data (like PDFs) cannot be directly embedded in JSON. Base64 converts binary to text.
+- **Safe Transport**: Ensures data integrity during transmission over HTTP.
+- **Standard Format**: Widely supported across all programming languages.
+
+## Response Structure
+
+Both PDF and XML endpoints return the same response structure:
+
+<ParamField path="file_name" type="string">
+  The suggested filename for saving the document (e.g., `"SETP990000123.pdf"`).
+</ParamField>
+
+<ParamField path="file_content" type="string">
+  Base64-encoded file content. Decode this string to get the actual file bytes.
+</ParamField>
+
+<ParamField path="extension" type="string">
+  File extension: `"pdf"` or `"xml"`.
+</ParamField>
+
+## Code Examples
+
+### Python
+
+```python
+import httpx
+import base64
+from pathlib import Path
+
+async def download_invoice_pdf(
+    base_url: str,
+    local_token: str,
+    factus_token: str,
+    invoice_number: str,
+    output_dir: str = "./downloads"
+) -> str:
+    """
+    Download and save invoice PDF.
+    
+    Args:
+        base_url: API base URL
+        local_token: Local JWT token
+        factus_token: Factus access token
+        invoice_number: Invoice number (e.g., "SETP990000123")
+        output_dir: Directory to save the PDF
+    
+    Returns:
+        Path to the saved PDF file
+    """
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"{base_url}/api/v1/invoices/{invoice_number}/pdf",
+            headers={
+                "Authorization": f"Bearer {local_token}",
+                "X-Factus-Token": factus_token
+            }
+        )
+        response.raise_for_status()
+        
+        result = response.json()
+        file_data = result["data"]
+        
+        # Decode Base64 content
+        file_bytes = base64.b64decode(file_data["file_content"])
+        
+        # Save to file
+        output_path = Path(output_dir) / file_data["file_name"]
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_bytes(file_bytes)
+        
+        return str(output_path)
+
+async def download_invoice_xml(
+    base_url: str,
+    local_token: str,
+    factus_token: str,
+    invoice_number: str,
+    output_dir: str = "./downloads"
+) -> str:
+    """
+    Download and save invoice XML.
+    
+    Args:
+        base_url: API base URL
+        local_token: Local JWT token
+        factus_token: Factus access token
+        invoice_number: Invoice number
+        output_dir: Directory to save the XML
+    
+    Returns:
+        Path to the saved XML file
+    """
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"{base_url}/api/v1/invoices/{invoice_number}/xml",
+            headers={
+                "Authorization": f"Bearer {local_token}",
+                "X-Factus-Token": factus_token
+            }
+        )
+        response.raise_for_status()
+        
+        result = response.json()
+        file_data = result["data"]
+        
+        # Decode Base64 content
+        file_bytes = base64.b64decode(file_data["file_content"])
+        
+        # Save to file
+        output_path = Path(output_dir) / file_data["file_name"]
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_bytes(file_bytes)
+        
+        return str(output_path)
+
+# Usage
+pdf_path = await download_invoice_pdf(
+    base_url="http://localhost:8000",
+    local_token="your_jwt_token",
+    factus_token="your_factus_token",
+    invoice_number="SETP990000123"
+)
+print(f"PDF saved to: {pdf_path}")
+
+xml_path = await download_invoice_xml(
+    base_url="http://localhost:8000",
+    local_token="your_jwt_token",
+    factus_token="your_factus_token",
+    invoice_number="SETP990000123"
+)
+print(f"XML saved to: {xml_path}")
+```
+
+### JavaScript/TypeScript
+
+```typescript
+import fs from 'fs';
+import path from 'path';
+
+interface DownloadResponse {
+  file_name: string;
+  file_content: string;
+  extension: string;
+}
+
+async function downloadInvoicePDF(
+  baseUrl: string,
+  localToken: string,
+  factusToken: string,
+  invoiceNumber: string,
+  outputDir: string = './downloads'
+): Promise<string> {
+  const response = await fetch(
+    `${baseUrl}/api/v1/invoices/${invoiceNumber}/pdf`,
+    {
+      headers: {
+        'Authorization': `Bearer ${localToken}`,
+        'X-Factus-Token': factusToken
+      }
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to download PDF: ${response.statusText}`);
+  }
+
+  const result = await response.json();
+  const fileData: DownloadResponse = result.data;
+
+  // Decode Base64 content
+  const fileBuffer = Buffer.from(fileData.file_content, 'base64');
+
+  // Ensure output directory exists
+  if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true });
+  }
+
+  // Save to file
+  const outputPath = path.join(outputDir, fileData.file_name);
+  fs.writeFileSync(outputPath, fileBuffer);
+
+  return outputPath;
+}
+
+async function downloadInvoiceXML(
+  baseUrl: string,
+  localToken: string,
+  factusToken: string,
+  invoiceNumber: string,
+  outputDir: string = './downloads'
+): Promise<string> {
+  const response = await fetch(
+    `${baseUrl}/api/v1/invoices/${invoiceNumber}/xml`,
+    {
+      headers: {
+        'Authorization': `Bearer ${localToken}`,
+        'X-Factus-Token': factusToken
+      }
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to download XML: ${response.statusText}`);
+  }
+
+  const result = await response.json();
+  const fileData: DownloadResponse = result.data;
+
+  // Decode Base64 content
+  const fileBuffer = Buffer.from(fileData.file_content, 'base64');
+
+  // Ensure output directory exists
+  if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true });
+  }
+
+  // Save to file
+  const outputPath = path.join(outputDir, fileData.file_name);
+  fs.writeFileSync(outputPath, fileBuffer);
+
+  return outputPath;
+}
+
+// Usage
+const pdfPath = await downloadInvoicePDF(
+  'http://localhost:8000',
+  'your_jwt_token',
+  'your_factus_token',
+  'SETP990000123'
+);
+console.log(`PDF saved to: ${pdfPath}`);
+
+const xmlPath = await downloadInvoiceXML(
+  'http://localhost:8000',
+  'your_jwt_token',
+  'your_factus_token',
+  'SETP990000123'
+);
+console.log(`XML saved to: ${xmlPath}`);
+```
+
+### Browser/Frontend (JavaScript)
+
+For browser environments, you can trigger file downloads without saving to the filesystem:
+
+```javascript
+async function downloadInvoiceDocument(
+  baseUrl,
+  localToken,
+  factusToken,
+  invoiceNumber,
+  documentType // 'pdf' or 'xml'
+) {
+  const response = await fetch(
+    `${baseUrl}/api/v1/invoices/${invoiceNumber}/${documentType}`,
+    {
+      headers: {
+        'Authorization': `Bearer ${localToken}`,
+        'X-Factus-Token': factusToken
+      }
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to download ${documentType.toUpperCase()}`);
+  }
+
+  const result = await response.json();
+  const fileData = result.data;
+
+  // Convert Base64 to Blob
+  const byteCharacters = atob(fileData.file_content);
+  const byteNumbers = new Array(byteCharacters.length);
+  for (let i = 0; i < byteCharacters.length; i++) {
+    byteNumbers[i] = byteCharacters.charCodeAt(i);
+  }
+  const byteArray = new Uint8Array(byteNumbers);
+  
+  const mimeType = documentType === 'pdf' 
+    ? 'application/pdf' 
+    : 'application/xml';
+  const blob = new Blob([byteArray], { type: mimeType });
+
+  // Trigger download
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileData.file_name;
+  link.click();
+  
+  // Cleanup
+  window.URL.revokeObjectURL(url);
+}
+
+// Usage
+await downloadInvoiceDocument(
+  'http://localhost:8000',
+  'your_jwt_token',
+  'your_factus_token',
+  'SETP990000123',
+  'pdf'
+);
+```
+
+## Batch Downloads
+
+Download both PDF and XML for an invoice:
+
+### Python
+
+```python
+async def download_invoice_documents(
+    base_url: str,
+    local_token: str,
+    factus_token: str,
+    invoice_number: str,
+    output_dir: str = "./downloads"
+) -> dict[str, str]:
+    """
+    Download both PDF and XML for an invoice.
+    
+    Returns:
+        Dictionary with 'pdf' and 'xml' file paths
+    """
+    # Download both concurrently
+    pdf_task = download_invoice_pdf(
+        base_url, local_token, factus_token, invoice_number, output_dir
+    )
+    xml_task = download_invoice_xml(
+        base_url, local_token, factus_token, invoice_number, output_dir
+    )
+    
+    pdf_path, xml_path = await asyncio.gather(pdf_task, xml_task)
+    
+    return {
+        "pdf": pdf_path,
+        "xml": xml_path
+    }
+
+# Usage
+import asyncio
+
+paths = await download_invoice_documents(
+    base_url="http://localhost:8000",
+    local_token="your_jwt_token",
+    factus_token="your_factus_token",
+    invoice_number="SETP990000123"
+)
+print(f"Downloaded: {paths}")
+```
+
+### TypeScript
+
+```typescript
+async function downloadInvoiceDocuments(
+  baseUrl: string,
+  localToken: string,
+  factusToken: string,
+  invoiceNumber: string,
+  outputDir: string = './downloads'
+): Promise<{ pdf: string; xml: string }> {
+  // Download both concurrently
+  const [pdfPath, xmlPath] = await Promise.all([
+    downloadInvoicePDF(baseUrl, localToken, factusToken, invoiceNumber, outputDir),
+    downloadInvoiceXML(baseUrl, localToken, factusToken, invoiceNumber, outputDir)
+  ]);
+
+  return { pdf: pdfPath, xml: xmlPath };
+}
+
+// Usage
+const paths = await downloadInvoiceDocuments(
+  'http://localhost:8000',
+  'your_jwt_token',
+  'your_factus_token',
+  'SETP990000123'
+);
+console.log(`Downloaded: ${JSON.stringify(paths)}`);
+```
+
+## Error Handling
+
+### Invoice Not Found
+
+```json
+{
+  "detail": "Error al descargar el PDF: Invoice not found"
+}
+```
+
+**Solution**: Verify the invoice number is correct and the invoice exists in Factus.
+
+### Missing Authentication
+
+```json
+{
+  "detail": "Could not validate credentials"
+}
+```
+
+**Solution**: Ensure both `Authorization` and `X-Factus-Token` headers are provided.
+
+### Factus Service Error
+
+```json
+{
+  "detail": "Error al descargar el PDF: Factus API timeout"
+}
+```
+
+**Solution**: The Factus service may be temporarily unavailable. Retry after a short delay.
+
+## Best Practices
+
+<Accordion title="Handle Large Files">
+  For large invoices with many items, the PDF file can be several megabytes. Consider:
+  - Implementing download progress indicators
+  - Using streaming for very large files
+  - Setting appropriate timeout values for HTTP requests
+</Accordion>
+
+<Accordion title="Store Documents Securely">
+  - Store downloaded files in secure directories with restricted permissions
+  - Encrypt sensitive invoice documents at rest
+  - Implement access controls for document retrieval
+  - Consider using cloud storage with encryption (S3, Azure Blob, etc.)
+</Accordion>
+
+<Accordion title="Implement Retry Logic">
+  Network issues or temporary Factus service unavailability can cause download failures. Implement exponential backoff retry logic:
+  
+  ```python
+  from tenacity import retry, stop_after_attempt, wait_exponential
+  
+  @retry(
+      stop=stop_after_attempt(3),
+      wait=wait_exponential(multiplier=1, min=4, max=10)
+  )
+  async def download_with_retry(invoice_number: str):
+      return await download_invoice_pdf(
+          base_url, local_token, factus_token, invoice_number
+      )
+  ```
+</Accordion>
+
+<Accordion title="Validate Downloaded Files">
+  After decoding Base64 content, validate the file:
+  
+  - Check file size is non-zero
+  - Verify PDF/XML file signatures (magic bytes)
+  - For PDFs: Check for valid PDF header (`%PDF-`)
+  - For XML: Validate XML structure
+</Accordion>
+
+## Troubleshooting
+
+<Warning>
+If you receive corrupted files after decoding, ensure you're decoding the Base64 string correctly without modifying it. Some HTTP clients may automatically decode Base64, causing double-decoding issues.
+</Warning>
+
+### Verify Base64 Decoding
+
+```python
+# Python: Test Base64 decoding
+import base64
+
+def is_valid_base64(s: str) -> bool:
+    try:
+        base64.b64decode(s, validate=True)
+        return True
+    except Exception:
+        return False
+
+if not is_valid_base64(file_content):
+    print("Invalid Base64 string")
+```
+
+### Verify File Integrity
+
+```python
+# Python: Check PDF signature
+def is_valid_pdf(file_bytes: bytes) -> bool:
+    return file_bytes.startswith(b'%PDF-')
+
+# Python: Check XML structure
+import xml.etree.ElementTree as ET
+
+def is_valid_xml(file_bytes: bytes) -> bool:
+    try:
+        ET.fromstring(file_bytes)
+        return True
+    except ET.ParseError:
+        return False
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Creating Invoices" icon="file-invoice" href="/guides/creating-invoices">
+    Learn how to create invoices
+  </Card>
+  <Card title="Error Handling" icon="triangle-exclamation" href="/guides/error-handling">
+    Handle errors and troubleshoot issues
+  </Card>
+</CardGroup>

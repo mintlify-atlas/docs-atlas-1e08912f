@@ -1,0 +1,350 @@
+---
+title: Authentication
+description: Learn how to authenticate with the Factus API using the two-layer authentication system
+---
+
+The Factus API uses a **two-layer authentication system** to provide secure access to invoice operations. You need both a local JWT token and a Factus access token to make API calls.
+
+## Authentication Layers
+
+The API implements two distinct authentication layers:
+
+1. **Local JWT Authentication**: Protects all API endpoints with a local access token
+2. **Factus Token Authentication**: Required for operations that interact with the Factus service
+
+<Note>
+This two-layer approach ensures that only authenticated users can access your API, while the Factus token provides secure communication with the external Factus service.
+</Note>
+
+## Quick Start
+
+<Steps>
+  <Step title="Get Local JWT Token">
+    First, authenticate with the local API to receive a JWT access token.
+
+    ```bash
+    curl -X POST "http://localhost:8000/api/v1/auth/login" \
+      -H "Content-Type: application/x-www-form-urlencoded" \
+      -d "username=admin&password=admin123"
+    ```
+
+    **Response:**
+    ```json
+    {
+      "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+      "token_type": "bearer"
+    }
+    ```
+
+    <Info>
+    The default credentials are `admin` / `admin123`. In production, these should be replaced with proper user authentication.
+    </Info>
+  </Step>
+
+  <Step title="Get Factus Access Token">
+    Use your local JWT token to authenticate with Factus and receive a Factus access token.
+
+    ```bash
+    curl -X POST "http://localhost:8000/api/v1/auth/factus/login" \
+      -H "Authorization: Bearer YOUR_LOCAL_JWT_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "email": "your-factus-email@example.com",
+        "password": "your-factus-password"
+      }'
+    ```
+
+    **Response:**
+    ```json
+    {
+      "success": true,
+      "message": "Autenticación exitosa",
+      "data": {
+        "access_token": "factus_token_here",
+        "token_type": "Bearer",
+        "expires_in": 3600,
+        "refresh_token": "factus_refresh_token_here"
+      }
+    }
+    ```
+  </Step>
+
+  <Step title="Make Authenticated Requests">
+    Now you can make requests to protected endpoints using both tokens:
+
+    ```bash
+    curl -X POST "http://localhost:8000/api/v1/invoices" \
+      -H "Authorization: Bearer YOUR_LOCAL_JWT_TOKEN" \
+      -H "X-Factus-Token: YOUR_FACTUS_ACCESS_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d @invoice.json
+    ```
+  </Step>
+</Steps>
+
+## Required Headers
+
+All protected endpoints require specific headers:
+
+### For All Protected Endpoints
+
+```http
+Authorization: Bearer YOUR_LOCAL_JWT_TOKEN
+```
+
+This header is required for all API endpoints except `/auth/login`.
+
+### For Factus Operations
+
+```http
+Authorization: Bearer YOUR_LOCAL_JWT_TOKEN
+X-Factus-Token: YOUR_FACTUS_ACCESS_TOKEN
+```
+
+Invoice and lookup endpoints require both the `Authorization` header and the `X-Factus-Token` header.
+
+## Token Refresh Workflow
+
+Factus access tokens expire after a certain period (typically 1 hour). Use the refresh token to obtain a new access token without re-entering credentials.
+
+<Steps>
+  <Step title="Check Token Expiration">
+    The Factus login response includes an `expires_in` field indicating the token lifetime in seconds.
+
+    ```json
+    {
+      "access_token": "...",
+      "expires_in": 3600,
+      "refresh_token": "..."
+    }
+    ```
+  </Step>
+
+  <Step title="Refresh the Token">
+    Before the token expires, use the refresh token to get a new access token:
+
+    ```bash
+    curl -X POST "http://localhost:8000/api/v1/auth/factus/refresh" \
+      -H "Authorization: Bearer YOUR_LOCAL_JWT_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "refresh_token": "YOUR_FACTUS_REFRESH_TOKEN"
+      }'
+    ```
+
+    **Response:**
+    ```json
+    {
+      "success": true,
+      "message": "Token refrescado exitosamente",
+      "data": {
+        "access_token": "new_factus_token_here",
+        "token_type": "Bearer",
+        "expires_in": 3600,
+        "refresh_token": "new_refresh_token_here"
+      }
+    }
+    ```
+  </Step>
+
+  <Step title="Update Your Token">
+    Replace your old Factus access token with the new one in subsequent requests.
+  </Step>
+</Steps>
+
+<Warning>
+Always store tokens securely and never expose them in client-side code or version control.
+</Warning>
+
+## Code Examples
+
+### Python
+
+```python
+import httpx
+from typing import Optional
+
+class FactusClient:
+    def __init__(self, base_url: str):
+        self.base_url = base_url
+        self.local_token: Optional[str] = None
+        self.factus_token: Optional[str] = None
+        self.refresh_token: Optional[str] = None
+
+    async def login_local(self, username: str, password: str):
+        """Authenticate with the local API"""
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{self.base_url}/api/v1/auth/login",
+                data={"username": username, "password": password}
+            )
+            response.raise_for_status()
+            data = response.json()
+            self.local_token = data["access_token"]
+
+    async def login_factus(self, email: str, password: str):
+        """Authenticate with Factus"""
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{self.base_url}/api/v1/auth/factus/login",
+                headers={"Authorization": f"Bearer {self.local_token}"},
+                json={"email": email, "password": password}
+            )
+            response.raise_for_status()
+            result = response.json()
+            self.factus_token = result["data"]["access_token"]
+            self.refresh_token = result["data"]["refresh_token"]
+
+    async def refresh_factus_token(self):
+        """Refresh the Factus access token"""
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{self.base_url}/api/v1/auth/factus/refresh",
+                headers={"Authorization": f"Bearer {self.local_token}"},
+                json={"refresh_token": self.refresh_token}
+            )
+            response.raise_for_status()
+            result = response.json()
+            self.factus_token = result["data"]["access_token"]
+            self.refresh_token = result["data"]["refresh_token"]
+
+    def get_headers(self) -> dict:
+        """Get headers for authenticated requests"""
+        return {
+            "Authorization": f"Bearer {self.local_token}",
+            "X-Factus-Token": self.factus_token
+        }
+```
+
+### JavaScript/TypeScript
+
+```typescript
+class FactusClient {
+  private baseUrl: string;
+  private localToken?: string;
+  private factusToken?: string;
+  private refreshToken?: string;
+
+  constructor(baseUrl: string) {
+    this.baseUrl = baseUrl;
+  }
+
+  async loginLocal(username: string, password: string): Promise<void> {
+    const response = await fetch(`${this.baseUrl}/api/v1/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ username, password })
+    });
+
+    if (!response.ok) throw new Error('Local authentication failed');
+    
+    const data = await response.json();
+    this.localToken = data.access_token;
+  }
+
+  async loginFactus(email: string, password: string): Promise<void> {
+    const response = await fetch(`${this.baseUrl}/api/v1/auth/factus/login`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.localToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ email, password })
+    });
+
+    if (!response.ok) throw new Error('Factus authentication failed');
+    
+    const result = await response.json();
+    this.factusToken = result.data.access_token;
+    this.refreshToken = result.data.refresh_token;
+  }
+
+  async refreshFactusToken(): Promise<void> {
+    const response = await fetch(`${this.baseUrl}/api/v1/auth/factus/refresh`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.localToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ refresh_token: this.refreshToken })
+    });
+
+    if (!response.ok) throw new Error('Token refresh failed');
+    
+    const result = await response.json();
+    this.factusToken = result.data.access_token;
+    this.refreshToken = result.data.refresh_token;
+  }
+
+  getHeaders(): Record<string, string> {
+    return {
+      'Authorization': `Bearer ${this.localToken}`,
+      'X-Factus-Token': this.factusToken || ''
+    };
+  }
+}
+```
+
+## Error Handling
+
+### 401 Unauthorized
+
+Returned when the local JWT token is missing, invalid, or expired.
+
+```json
+{
+  "detail": "Could not validate credentials"
+}
+```
+
+**Solution**: Re-authenticate with `/api/v1/auth/login`.
+
+### 400 Bad Request (Factus Authentication)
+
+Returned when Factus credentials are incorrect or the Factus service is unavailable.
+
+```json
+{
+  "detail": "No se pudo obtener el token de Factus: [error message]"
+}
+```
+
+**Solution**: Verify your Factus credentials and service availability.
+
+## Security Best Practices
+
+<Accordion title="Store Tokens Securely">
+  Never store tokens in:
+  - Local storage (vulnerable to XSS)
+  - URLs or query parameters
+  - Client-side JavaScript files
+  - Version control systems
+
+  Instead:
+  - Use secure, httpOnly cookies for web applications
+  - Store in environment variables for server-side applications
+  - Use secure credential managers for mobile apps
+</Accordion>
+
+<Accordion title="Implement Token Rotation">
+  Always use the refresh token mechanism to obtain new access tokens before expiration. Implement automatic token refresh in your client to avoid service interruptions.
+</Accordion>
+
+<Accordion title="Use HTTPS in Production">
+  Always use HTTPS in production to prevent token interception. Never send tokens over unencrypted HTTP connections.
+</Accordion>
+
+<Accordion title="Handle Token Expiration Gracefully">
+  Implement retry logic that attempts to refresh the token when receiving a 401 response, then retries the original request.
+</Accordion>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Creating Invoices" icon="file-invoice" href="/guides/creating-invoices">
+    Learn how to create and submit invoices to Factus
+  </Card>
+  <Card title="Error Handling" icon="triangle-exclamation" href="/guides/error-handling">
+    Understand error responses and troubleshooting
+  </Card>
+</CardGroup>
